@@ -110,6 +110,9 @@ export default function App() {
   const [view, setView]       = useState('login')
   const [username, setUser]   = useState('')
   const [nameInput, setName]  = useState('')
+  const [pinInput, setPinInput] = useState('')
+  const [userPin, setUserPin]   = useState('')
+  const [loginErr, setLoginErr] = useState('')
   const [step, setStep]       = useState(0)
   const [pred, setPred]       = useState(EMPTY_PRED)
   const [allPreds, setAll]    = useState([])
@@ -148,11 +151,22 @@ export default function App() {
 
   const handleLogin = async () => {
     const name = nameInput.trim()
+    const pin  = pinInput.trim()
+    setLoginErr('')
     if (!name) return
-    setUser(name)
+    if (!/^\d{4}$/.test(pin)) { setLoginErr('PIN musi mieć dokładnie 4 cyfry.'); return }
+
+    setLoading(true)
     const { data } = await supabase
       .from('predictions').select('*').eq('username', name).maybeSingle()
+    setLoading(false)
+
     if (data?.data) {
+      const storedPin = data.data.pin
+      if (storedPin && storedPin !== pin) {
+        setLoginErr('Nieprawidłowy PIN. Spróbuj ponownie.')
+        return
+      }
       setPred({
         ...EMPTY_PRED,
         ...data.data,
@@ -164,6 +178,8 @@ export default function App() {
       setPred(EMPTY_PRED)
       setSaved(false)
     }
+    setUserPin(pin)
+    setUser(name)
     setStep(0)
     setView('predict')
   }
@@ -172,7 +188,7 @@ export default function App() {
     setLoading(true)
     const { error } = await supabase
       .from('predictions')
-      .upsert({ username, data: pred, updated_at: new Date().toISOString() }, { onConflict:'username' })
+      .upsert({ username, data: { ...pred, pin: userPin }, updated_at: new Date().toISOString() }, { onConflict:'username' })
     if (!error) {
       setSaved(true)
       showToast('✅ Typowanie zapisane!')
@@ -185,7 +201,10 @@ export default function App() {
     setLoading(false)
   }
 
-  const logout = () => { setView('login'); setUser(''); setName(''); setSaved(false); setPred(EMPTY_PRED) }
+  const logout = () => {
+    setView('login'); setUser(''); setName(''); setPinInput(''); setUserPin('')
+    setSaved(false); setPred(EMPTY_PRED); setLoginErr('')
+  }
 
   // ── Mutators ──────────────────────────────────────────────────────────────
   const setGW  = (g, t)   => { if (!isGroupLocked(g)) setPred(p => ({ ...p, groupWinners: {...p.groupWinners, [g]:t} })) }
@@ -211,30 +230,80 @@ export default function App() {
   // ═══════════════════════════════════════════════════════════════════════════
   // LOGIN
   // ═══════════════════════════════════════════════════════════════════════════
+  const loginReady = nameInput.trim() && /^\d{4}$/.test(pinInput.trim())
+
   if (view === 'login') return (
     <div style={{...C.page, display:'flex', alignItems:'center', justifyContent:'center',
                  background:'radial-gradient(ellipse at 50% 0%,#0f4015 0%,#0b0f13 70%)'}}>
       {toast && <Toast msg={toast}/>}
       <div style={{background:'#0f1923', border:'2px solid #d4a017', borderRadius:20,
-                   padding:'44px 40px', maxWidth:420, width:'90%', textAlign:'center',
+                   padding:'40px 36px', maxWidth:420, width:'90%', textAlign:'center',
                    boxShadow:'0 24px 80px rgba(0,0,0,0.8)'}}>
-        <div style={{fontSize:56}}>⚽</div>
-        <h1 style={{...C.gold, fontSize:26, margin:'12px 0 4px'}}>Mundial 2026 · Typer</h1>
-        <p style={{...C.muted, margin:'0 0 6px', fontSize:13}}>🇺🇸 USA · 🇨🇦 Kanada · 🇲🇽 Meksyk</p>
-        <p style={{...C.muted, margin:'0 0 28px', fontSize:12}}>11 czerwca – 19 lipca 2026 · 48 drużyn · 104 mecze</p>
-        <input
-          style={C.inp}
-          value={nameInput}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleLogin()}
-          placeholder="Twoje imię lub nick..."
-          autoFocus
-        />
-        <button onClick={handleLogin} disabled={!nameInput.trim()}
-          style={{...C.btn('#d4a017','#000',nameInput.trim()?1:0.45), width:'100%', marginTop:14, fontSize:16, padding:'14px'}}>
-          Typuj! →
+        <div style={{fontSize:52}}>⚽</div>
+        <h1 style={{...C.gold, fontSize:25, margin:'10px 0 4px'}}>Mundial 2026 · Typer</h1>
+        <p style={{...C.muted, margin:'0 0 4px', fontSize:13}}>🇺🇸 USA · 🇨🇦 Kanada · 🇲🇽 Meksyk</p>
+        <p style={{...C.muted, margin:'0 0 20px', fontSize:12}}>11 czerwca – 19 lipca 2026 · 48 drużyn · 104 mecze</p>
+
+        {/* Instrukcja */}
+        <div style={{
+          background:'#1a2535', border:'1px solid #2a3f55', borderRadius:10,
+          padding:'12px 16px', marginBottom:20, textAlign:'left',
+        }}>
+          <p style={{margin:'0 0 6px', fontSize:13, color:'#e2e8f0', fontWeight:600}}>
+            👋 Jak dołączyć?
+          </p>
+          <ul style={{...C.muted, margin:0, paddingLeft:18, fontSize:12, lineHeight:1.8}}>
+            <li>Wpisz swój <strong style={{color:'#e2e8f0'}}>nick</strong> (dowolna nazwa)</li>
+            <li>Wymyśl <strong style={{color:'#e2e8f0'}}>4-cyfrowy PIN</strong> — zapamiętaj go!</li>
+            <li>Pierwsze wejście <strong style={{color:'#4ade80'}}>tworzy konto</strong> z tym PINem</li>
+            <li>Kolejne wejścia wymagają <strong style={{color:'#e2e8f0'}}>tego samego PINu</strong></li>
+          </ul>
+        </div>
+
+        <div style={{textAlign:'left', marginBottom:10}}>
+          <label style={{...C.muted, fontSize:12, display:'block', marginBottom:5}}>Nick / imię</label>
+          <input
+            style={C.inp}
+            value={nameInput}
+            onChange={e => { setName(e.target.value); setLoginErr('') }}
+            onKeyDown={e => e.key === 'Enter' && loginReady && !loading && handleLogin()}
+            placeholder="np. Marek, KrólStrzelców..."
+            autoFocus
+          />
+        </div>
+
+        <div style={{textAlign:'left', marginBottom: loginErr ? 8 : 20}}>
+          <label style={{...C.muted, fontSize:12, display:'block', marginBottom:5}}>PIN (4 cyfry)</label>
+          <input
+            style={{...C.inp, letterSpacing:8, fontSize:22, textAlign:'center'}}
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={pinInput}
+            onChange={e => { setPinInput(e.target.value.replace(/\D/g,'')); setLoginErr('') }}
+            onKeyDown={e => e.key === 'Enter' && loginReady && !loading && handleLogin()}
+            placeholder="• • • •"
+          />
+        </div>
+
+        {loginErr && (
+          <div style={{
+            background:'#2a1010', border:'1px solid #5a2020', borderRadius:8,
+            padding:'10px 14px', marginBottom:14, fontSize:13, color:'#f87171', textAlign:'left',
+          }}>
+            ❌ {loginErr}
+          </div>
+        )}
+
+        <button
+          onClick={handleLogin}
+          disabled={!loginReady || loading}
+          style={{...C.btn('#d4a017','#000', loginReady && !loading ? 1 : 0.4),
+                  width:'100%', fontSize:16, padding:'14px'}}>
+          {loading ? 'Sprawdzam...' : 'Wejdź i typuj! →'}
         </button>
-        <div style={{marginTop:20, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+
+        <div style={{marginTop:18, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <span style={{...C.muted, fontSize:12}}>👥 {allPreds.length} {allPreds.length===1?'typowanie':'typowań'}</span>
           <div style={{display:'flex', gap:12}}>
             <button onClick={() => setView('leaderboard')}
