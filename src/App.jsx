@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import {
   GROUPS, FLAGS, GROUP_LETTERS, ALL_TEAMS, SCORING, EMPTY_PRED,
+  MATCHES, matchKey,
   GROUP_LOCK_UTC, KNOCKOUT_LOCK_UTC,
   isGroupLocked, isKnockoutLocked, formatLockTime,
 } from './data/schedule'
@@ -92,16 +93,17 @@ function LockBadge({ lockTime }) {
 // MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [view, setView]       = useState('login')
-  const [username, setUser]   = useState('')
-  const [nameInput, setName]  = useState('')
-  const [step, setStep]       = useState(0)
-  const [pred, setPred]       = useState(EMPTY_PRED)
-  const [allPreds, setAll]    = useState([])
-  const [loading, setLoading] = useState(false)
-  const [saved, setSaved]     = useState(false)
-  const [toast, setToast]     = useState('')
-  const [, tick]              = useState(0)   // re-render for lock countdown
+  const [view, setView]         = useState('login')
+  const [username, setUser]     = useState('')
+  const [nameInput, setName]    = useState('')
+  const [step, setStep]         = useState(0)
+  const [pred, setPred]         = useState(EMPTY_PRED)
+  const [allPreds, setAll]      = useState([])
+  const [loading, setLoading]   = useState(false)
+  const [saved, setSaved]       = useState(false)
+  const [toast, setToast]       = useState('')
+  const [matchGroup, setMatchGroup] = useState(GROUP_LETTERS[0])
+  const [, tick]                = useState(0)   // re-render for lock countdown
 
   // Tick every minute to update lock states
   useEffect(() => {
@@ -141,7 +143,12 @@ export default function App() {
       .eq('username', name)
       .maybeSingle()
     if (data?.data) {
-      setPred({ ...EMPTY_PRED, ...data.data })
+      setPred({
+        ...EMPTY_PRED,
+        ...data.data,
+        groupWinners: { ...EMPTY_PRED.groupWinners, ...(data.data.groupWinners || {}) },
+        matchScores:  { ...EMPTY_PRED.matchScores,  ...(data.data.matchScores  || {}) },
+      })
       setSaved(true)
     } else {
       setPred(EMPTY_PRED)
@@ -175,15 +182,26 @@ export default function App() {
   const setGW  = (g, t) => { if (!isGroupLocked(g)) setPred(p => ({ ...p, groupWinners: {...p.groupWinners, [g]:t} })) }
   const setSF  = (i, t) => { if (!isKnockoutLocked()) { const sf=[...pred.semifinalists]; sf[i]=t; setPred(p=>({...p,semifinalists:sf})) } }
   const setKey = (k, v) => { if (!isKnockoutLocked()) setPred(p => ({...p,[k]:v})) }
+  const setMatchScore = (g, m, side, val) => {
+    if (isGroupLocked(g)) return
+    const key = matchKey(g, m)
+    const num = val === '' ? '' : String(Math.max(0, parseInt(val) || 0))
+    setPred(p => ({
+      ...p,
+      matchScores: {
+        ...p.matchScores,
+        [key]: { ...(p.matchScores?.[key] || { h: '', a: '' }), [side]: num },
+      },
+    }))
+  }
 
-  const doneCount = GROUP_LETTERS.filter(g => pred.groupWinners[g]).length
-  const step0ok = GROUP_LETTERS.every(g => pred.groupWinners[g] || isGroupLocked(g))
-  // Step 0 actually requires all unlocked groups to be filled
+  const doneCount    = GROUP_LETTERS.filter(g => pred.groupWinners[g]).length
+  const matchFilled  = Object.values(pred.matchScores || {}).filter(s => s.h !== '' && s.a !== '').length
   const step0complete = GROUP_LETTERS
     .filter(g => !isGroupLocked(g))
     .every(g => pred.groupWinners[g])
-    && GROUP_LETTERS.some(g => pred.groupWinners[g]) // at least one filled
-  const step1ok = pred.semifinalists.every(Boolean) && pred.finalist1 && pred.finalist2 && pred.winner && pred.topScorerCountry
+    && GROUP_LETTERS.some(g => pred.groupWinners[g])
+  const knockoutOk = pred.semifinalists.every(Boolean) && pred.finalist1 && pred.finalist2 && pred.winner && pred.topScorerCountry
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LOGIN
@@ -385,18 +403,20 @@ export default function App() {
       <div style={{maxWidth:1000, margin:'0 auto', padding:'20px 16px 40px'}}>
 
         {/* Step tabs */}
-        <div style={{display:'flex', gap:8, marginBottom:24}}>
+        <div style={{display:'flex', gap:6, marginBottom:24, flexWrap:'wrap'}}>
           {[
-            {icon:'🏆', label:'Grupy (A–L)', ok: doneCount > 0},
-            {icon:'⚔️', label:'Faza pucharowa', ok: step1ok},
-            {icon:'📋', label:'Podsumowanie', ok:false},
+            {icon:'🏆', label:'Grupy (A–L)',     ok: doneCount > 0},
+            {icon:'⚽', label:'Mecze grupowe',    ok: matchFilled > 0},
+            {icon:'⚔️', label:'Faza pucharowa',  ok: knockoutOk},
+            {icon:'📋', label:'Podsumowanie',     ok: false},
           ].map(({icon,label,ok},i) => (
             <button key={i} onClick={()=>setStep(i)} style={{
-              flex:1, padding:'11px 8px',
+              flex:1, minWidth:0, padding:'10px 6px',
               background: step===i?'#d4a017':ok?'#1a2e1a':'#161d27',
               color: step===i?'#000':ok?'#4ade80':'#6b7a8d',
               border:`1px solid ${step===i?'#d4a017':ok?'#2a4d2a':'#1e2d3d'}`,
-              borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:step===i?700:500,
+              borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:step===i?700:500,
+              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
             }}>
               {icon} {label}{ok&&step!==i?' ✓':''}
             </button>
@@ -467,13 +487,137 @@ export default function App() {
 
           <div style={{display:'flex', justifyContent:'flex-end'}}>
             <button onClick={()=>setStep(1)} style={C.btn('#d4a017','#000')}>
-              Dalej → Faza pucharowa
+              Dalej → Mecze grupowe
             </button>
           </div>
         </>)}
 
-        {/* ── STEP 1: FAZA PUCHAROWA ────────────────────────────────────── */}
+        {/* ── STEP 1: MECZE GRUPOWE ─────────────────────────────────────── */}
         {step === 1 && (<>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:16}}>
+            <h3 style={{margin:0}}>Wyniki meczów grupowych</h3>
+            <span style={{...C.muted, fontSize:13}}>
+              {matchFilled}/72 meczów
+              {matchFilled === 72 && <span style={C.gold}> ✓ Komplet!</span>}
+            </span>
+          </div>
+
+          {/* Zakładki grup */}
+          <div style={{display:'flex', gap:4, flexWrap:'wrap', marginBottom:16}}>
+            {GROUP_LETTERS.map(g => {
+              const gFilled = MATCHES[g].filter(m => {
+                const s = pred.matchScores?.[matchKey(g, m)]
+                return s?.h !== '' && s?.a !== ''
+              }).length
+              const locked = isGroupLocked(g)
+              return (
+                <button key={g} onClick={() => setMatchGroup(g)} style={{
+                  padding:'6px 12px',
+                  background: matchGroup===g ? '#d4a017' : locked ? '#1a1010' : '#1e2d3d',
+                  color: matchGroup===g ? '#000' : locked ? '#f87171' : '#e2e8f0',
+                  border:'1px solid ' + (matchGroup===g ? '#d4a017' : locked ? '#3a1a1a' : '#2a3f55'),
+                  borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:13,
+                  position:'relative',
+                }}>
+                  {g}
+                  {gFilled > 0 && (
+                    <span style={{
+                      fontSize:9, position:'absolute', top:-4, right:-4,
+                      background: gFilled===6 ? '#4ade80' : '#d4a017',
+                      color:'#000', borderRadius:8, padding:'1px 4px', fontWeight:800,
+                    }}>{gFilled}</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Mecze wybranej grupy */}
+          <div style={C.card()}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16, flexWrap:'wrap'}}>
+              <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:14,
+                             borderRadius:6, padding:'3px 12px'}}>GRUPA {matchGroup}</span>
+              <LockBadge lockTime={GROUP_LOCK_UTC[matchGroup]}/>
+              <span style={{...C.muted, fontSize:12, marginLeft:'auto'}}>
+                {MATCHES[matchGroup].filter(m => {
+                  const s = pred.matchScores?.[matchKey(matchGroup, m)]
+                  return s?.h !== '' && s?.a !== ''
+                }).length}/6 meczów
+              </span>
+            </div>
+
+            {[1,2,3].map(md => (
+              <div key={md}>
+                <div style={{...C.muted, fontSize:11, padding:'8px 0 6px',
+                             borderTop: md > 1 ? '1px solid #1e2d3d' : 'none',
+                             marginTop: md > 1 ? 8 : 0}}>
+                  Kolejka {md}
+                </div>
+                {MATCHES[matchGroup].filter(m => m.matchday === md).map(m => {
+                  const key   = matchKey(matchGroup, m)
+                  const score = pred.matchScores?.[key] || { h: '', a: '' }
+                  const locked = isGroupLocked(matchGroup)
+                  const filled = score.h !== '' && score.a !== ''
+                  return (
+                    <div key={key} style={{
+                      display:'grid', gridTemplateColumns:'1fr auto 1fr',
+                      alignItems:'center', gap:8, padding:'9px 4px',
+                      borderBottom:'1px solid #1a2333',
+                      background: filled ? 'rgba(212,160,23,0.04)' : 'transparent',
+                      borderRadius:6, marginBottom:2,
+                    }}>
+                      <span style={{textAlign:'right', fontSize:13,
+                                    color: filled ? '#e2e8f0' : '#8a9ab0', fontWeight: filled ? 600 : 400}}>
+                        {FLAGS[m.home]||'🏳️'} {m.home}
+                      </span>
+                      <div style={{display:'flex', alignItems:'center', gap:4}}>
+                        <input
+                          type="number" min="0" max="30"
+                          disabled={locked}
+                          value={score.h}
+                          onChange={e => setMatchScore(matchGroup, m, 'h', e.target.value)}
+                          style={{
+                            width:44, textAlign:'center', padding:'7px 4px',
+                            background: locked ? '#111820' : '#1e2d3d', color:'#e2e8f0',
+                            border:`1px solid ${filled ? '#d4a017' : '#2a3f55'}`,
+                            borderRadius:6, fontSize:16, fontWeight:700,
+                            opacity: locked ? 0.5 : 1, outline:'none',
+                          }}
+                        />
+                        <span style={{...C.muted, fontWeight:800, fontSize:16}}>:</span>
+                        <input
+                          type="number" min="0" max="30"
+                          disabled={locked}
+                          value={score.a}
+                          onChange={e => setMatchScore(matchGroup, m, 'a', e.target.value)}
+                          style={{
+                            width:44, textAlign:'center', padding:'7px 4px',
+                            background: locked ? '#111820' : '#1e2d3d', color:'#e2e8f0',
+                            border:`1px solid ${filled ? '#d4a017' : '#2a3f55'}`,
+                            borderRadius:6, fontSize:16, fontWeight:700,
+                            opacity: locked ? 0.5 : 1, outline:'none',
+                          }}
+                        />
+                      </div>
+                      <span style={{textAlign:'left', fontSize:13,
+                                    color: filled ? '#e2e8f0' : '#8a9ab0', fontWeight: filled ? 600 : 400}}>
+                        {m.away} {FLAGS[m.away]||'🏳️'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+
+          <div style={{display:'flex', justifyContent:'space-between', marginTop:20}}>
+            <button onClick={()=>setStep(0)} style={C.btn('#1e2d3d','#ccc')}>← Grupy</button>
+            <button onClick={()=>setStep(2)} style={C.btn('#d4a017','#000')}>Dalej → Faza pucharowa</button>
+          </div>
+        </>)}
+
+        {/* ── STEP 2: FAZA PUCHAROWA ────────────────────────────────────── */}
+        {step === 2 && (<>
           <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:16}}>
             <h3 style={{margin:0}}>Faza pucharowa</h3>
             <LockBadge lockTime={KNOCKOUT_LOCK_UTC}/>
@@ -549,13 +693,13 @@ export default function App() {
           </div>
 
           <div style={{display:'flex', justifyContent:'space-between'}}>
-            <button onClick={()=>setStep(0)} style={C.btn('#1e2d3d','#ccc')}>← Grupy</button>
-            <button onClick={()=>setStep(2)} style={C.btn('#d4a017','#000')}>Dalej → Podsumowanie</button>
+            <button onClick={()=>setStep(1)} style={C.btn('#1e2d3d','#ccc')}>← Mecze</button>
+            <button onClick={()=>setStep(3)} style={C.btn('#d4a017','#000')}>Dalej → Podsumowanie</button>
           </div>
         </>)}
 
-        {/* ── STEP 2: PODSUMOWANIE ──────────────────────────────────────── */}
-        {step === 2 && (<>
+        {/* ── STEP 3: PODSUMOWANIE ──────────────────────────────────────── */}
+        {step === 3 && (<>
           <h3 style={{margin:'0 0 16px'}}>📋 Twoje typowanie – przegląd i zapis</h3>
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24}}>
             <div style={C.card()}>
@@ -609,7 +753,7 @@ export default function App() {
           </div>
 
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <button onClick={()=>setStep(1)} style={C.btn('#1e2d3d','#ccc')}>← Edytuj</button>
+            <button onClick={()=>setStep(2)} style={C.btn('#1e2d3d','#ccc')}>← Edytuj</button>
             <button onClick={handleSave} disabled={loading}
               style={{...C.btn('#00c850','#fff'), padding:'14px 40px', fontSize:16,
                       boxShadow:'0 4px 20px rgba(0,200,80,0.3)', opacity:loading?0.7:1}}>

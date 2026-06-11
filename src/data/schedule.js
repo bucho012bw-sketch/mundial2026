@@ -70,6 +70,22 @@ export const FLAGS = {
 export const GROUP_LETTERS = Object.keys(GROUPS)
 export const ALL_TEAMS = [...new Set(Object.values(GROUPS).flat())].sort()
 
+// ─── MECZE GRUPOWE ────────────────────────────────────────────────────────────
+// Standardowy round-robin dla 4 drużyn [T0,T1,T2,T3]:
+//   MD1: T0vT1, T2vT3 | MD2: T0vT2, T1vT3 | MD3: T0vT3, T1vT2
+export const MATCHES = Object.fromEntries(
+  Object.entries(GROUPS).map(([g, [T0, T1, T2, T3]]) => [g, [
+    { home: T0, away: T1, matchday: 1 },
+    { home: T2, away: T3, matchday: 1 },
+    { home: T0, away: T2, matchday: 2 },
+    { home: T1, away: T3, matchday: 2 },
+    { home: T0, away: T3, matchday: 3 },
+    { home: T1, away: T2, matchday: 3 },
+  ]])
+)
+
+export const matchKey = (g, m) => `${g}_${m.home}v${m.away}`
+
 export const SCORING = [
   { label: 'Zwycięzca grupy (×12)', pts: 3 },
   { label: 'Półfinalista (×4)', pts: 3 },
@@ -98,4 +114,9 @@ export const EMPTY_PRED = {
   finalist2: '',
   winner: '',
   topScorerCountry: '',
+  matchScores: Object.fromEntries(
+    Object.entries(MATCHES).flatMap(([g, ms]) =>
+      ms.map(m => [matchKey(g, m), { h: '', a: '' }])
+    )
+  ),
 }
