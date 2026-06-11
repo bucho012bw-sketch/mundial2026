@@ -275,14 +275,14 @@ export default function App() {
         <div style={{textAlign:'left', marginBottom: loginErr ? 8 : 20}}>
           <label style={{...C.muted, fontSize:12, display:'block', marginBottom:5}}>PIN (4 cyfry)</label>
           <input
-            style={{...C.inp, letterSpacing:8, fontSize:22, textAlign:'center'}}
-            type="password"
+            style={{...C.inp, letterSpacing:12, fontSize:22, textAlign:'center'}}
+            type="text"
             inputMode="numeric"
             maxLength={4}
             value={pinInput}
             onChange={e => { setPinInput(e.target.value.replace(/\D/g,'')); setLoginErr('') }}
             onKeyDown={e => e.key === 'Enter' && loginReady && !loading && handleLogin()}
-            placeholder="• • • •"
+            placeholder="1234"
           />
         </div>
 
