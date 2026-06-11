@@ -4,14 +4,14 @@ import {
   GROUPS, FLAGS, GROUP_LETTERS, ALL_TEAMS, SCORING, EMPTY_PRED,
   MATCHES, matchKey,
   GROUP_LOCK_UTC, KNOCKOUT_LOCK_UTC,
-  isGroupLocked, isKnockoutLocked, formatLockTime,
+  isGroupLocked, isKnockoutLocked, isMatchLocked, getMatchLock, formatLockTime,
 } from './data/schedule'
 
 // ─── CSS helpers ──────────────────────────────────────────────────────────────
 const C = {
   page:   { minHeight:'100vh', background:'#0b0f13', fontFamily:"'Segoe UI',system-ui,sans-serif", color:'#e2e8f0' },
   header: { background:'linear-gradient(135deg,#07290a 0%,#0f4015 60%,#07290a 100%)',
-            padding:'16px 24px', display:'flex', justifyContent:'space-between', alignItems:'center',
+            padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center',
             borderBottom:'2px solid #d4a017', boxShadow:'0 4px 24px rgba(0,0,0,0.6)' },
   card:   (extra={}) => ({ background:'#161d27', borderRadius:12, padding:20, border:'1px solid #1e2d3d', ...extra }),
   gold:   { color:'#f0b429' },
@@ -31,22 +31,20 @@ const C = {
          border:'2px solid #2a3f55', borderRadius:10, fontSize:16, boxSizing:'border-box', outline:'none' },
 }
 
-const f = (t) => t ? `${FLAGS[t]||'🏳️'} ${t}` : null
-
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function NavBar({ username, view, setView, onLogout, saved }) {
   return (
     <div style={C.header}>
       <div>
-        <h2 style={{...C.gold, margin:0, fontSize:18}}>⚽ Mundial 2026 · Typer</h2>
+        <h2 style={{...C.gold, margin:0, fontSize:17}}>⚽ Mundial 2026 · Typer</h2>
         {username && (
-          <p style={{...C.muted, margin:0, fontSize:12}}>
+          <p style={{...C.muted, margin:0, fontSize:11}}>
             Cześć, <strong style={{color:'#d4a017'}}>{username}</strong>
             {saved ? ' · ✅ Zapisano' : ''}
           </p>
         )}
       </div>
-      <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+      <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
         {username && view !== 'predict' && (
           <button onClick={() => setView('predict')} style={C.btn('#d4a017','#000')}>✏️ Typowanie</button>
         )}
@@ -62,7 +60,6 @@ function NavBar({ username, view, setView, onLogout, saved }) {
   )
 }
 
-// ─── TOAST ────────────────────────────────────────────────────────────────────
 function Toast({ msg }) {
   return (
     <div style={{
@@ -74,38 +71,56 @@ function Toast({ msg }) {
   )
 }
 
-// ─── LOCK BADGE ───────────────────────────────────────────────────────────────
 function LockBadge({ lockTime }) {
   const locked = new Date() >= lockTime
   if (locked) return (
-    <span style={{fontSize:11, background:'#3a1a1a', color:'#f87171', borderRadius:4, padding:'2px 8px', marginLeft:6}}>
+    <span style={{fontSize:11, background:'#3a1a1a', color:'#f87171', borderRadius:4, padding:'2px 8px'}}>
       🔒 Zablokowane
     </span>
   )
   return (
-    <span style={{fontSize:11, background:'#1a2e1a', color:'#4ade80', borderRadius:4, padding:'2px 8px', marginLeft:6}}>
-      🟢 Blokada: {formatLockTime(lockTime)}
+    <span style={{fontSize:11, background:'#1a2e1a', color:'#4ade80', borderRadius:4, padding:'2px 8px'}}>
+      🟢 {formatLockTime(lockTime)}
     </span>
   )
 }
+
+const scoreInput = (val, onChange, locked) => ({
+  type:'number', min:0, max:20,
+  disabled: locked,
+  value: val,
+  onChange,
+  style: {
+    width:48, textAlign:'center', padding:'8px 2px',
+    background: locked ? '#0f1520' : '#1e2d3d',
+    color: locked ? '#4a5568' : '#e2e8f0',
+    border:`1.5px solid ${val !== '' ? '#d4a017' : '#2a3f55'}`,
+    borderRadius:8, fontSize:18, fontWeight:700,
+    outline:'none', cursor: locked ? 'not-allowed' : 'auto',
+  },
+})
+
+const countMatchFilled = (matchScores) =>
+  Object.values(matchScores || {}).filter(s => s.h !== '' && s.a !== '').length
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [view, setView]         = useState('login')
-  const [username, setUser]     = useState('')
-  const [nameInput, setName]    = useState('')
-  const [step, setStep]         = useState(0)
-  const [pred, setPred]         = useState(EMPTY_PRED)
-  const [allPreds, setAll]      = useState([])
-  const [loading, setLoading]   = useState(false)
-  const [saved, setSaved]       = useState(false)
-  const [toast, setToast]       = useState('')
-  const [matchGroup, setMatchGroup] = useState(GROUP_LETTERS[0])
-  const [, tick]                = useState(0)   // re-render for lock countdown
+  const [view, setView]       = useState('login')
+  const [username, setUser]   = useState('')
+  const [nameInput, setName]  = useState('')
+  const [step, setStep]       = useState(0)
+  const [pred, setPred]       = useState(EMPTY_PRED)
+  const [allPreds, setAll]    = useState([])
+  const [loading, setLoading] = useState(false)
+  const [saved, setSaved]     = useState(false)
+  const [toast, setToast]     = useState('')
+  const [matchGroup, setMatchGroup] = useState(
+    () => GROUP_LETTERS.find(g => !isMatchLocked(g, 1)) || GROUP_LETTERS[0]
+  )
+  const [, tick] = useState(0)
 
-  // Tick every minute to update lock states
   useEffect(() => {
     const id = setInterval(() => tick(n => n+1), 60_000)
     return () => clearInterval(id)
@@ -113,7 +128,6 @@ export default function App() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
-  // ── Supabase helpers ─────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     const { data, error } = await supabase
       .from('predictions')
@@ -124,13 +138,12 @@ export default function App() {
 
   useEffect(() => { loadAll() }, [loadAll])
 
-  // Realtime subscription – auto-refresh leaderboard
   useEffect(() => {
-    const channel = supabase
-      .channel('predictions-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'predictions' }, loadAll)
+    const ch = supabase
+      .channel('pred-changes')
+      .on('postgres_changes', { event:'*', schema:'public', table:'predictions' }, loadAll)
       .subscribe()
-    return () => supabase.removeChannel(channel)
+    return () => supabase.removeChannel(ch)
   }, [loadAll])
 
   const handleLogin = async () => {
@@ -138,10 +151,7 @@ export default function App() {
     if (!name) return
     setUser(name)
     const { data } = await supabase
-      .from('predictions')
-      .select('*')
-      .eq('username', name)
-      .maybeSingle()
+      .from('predictions').select('*').eq('username', name).maybeSingle()
     if (data?.data) {
       setPred({
         ...EMPTY_PRED,
@@ -160,10 +170,9 @@ export default function App() {
 
   const handleSave = async () => {
     setLoading(true)
-    const payload = { username, data: pred, updated_at: new Date().toISOString() }
     const { error } = await supabase
       .from('predictions')
-      .upsert(payload, { onConflict: 'username' })
+      .upsert({ username, data: pred, updated_at: new Date().toISOString() }, { onConflict:'username' })
     if (!error) {
       setSaved(true)
       showToast('✅ Typowanie zapisane!')
@@ -178,30 +187,26 @@ export default function App() {
 
   const logout = () => { setView('login'); setUser(''); setName(''); setSaved(false); setPred(EMPTY_PRED) }
 
-  // ── Pred mutators ─────────────────────────────────────────────────────────────
-  const setGW  = (g, t) => { if (!isGroupLocked(g)) setPred(p => ({ ...p, groupWinners: {...p.groupWinners, [g]:t} })) }
-  const setSF  = (i, t) => { if (!isKnockoutLocked()) { const sf=[...pred.semifinalists]; sf[i]=t; setPred(p=>({...p,semifinalists:sf})) } }
-  const setKey = (k, v) => { if (!isKnockoutLocked()) setPred(p => ({...p,[k]:v})) }
+  // ── Mutators ──────────────────────────────────────────────────────────────
+  const setGW  = (g, t)   => { if (!isGroupLocked(g)) setPred(p => ({ ...p, groupWinners: {...p.groupWinners, [g]:t} })) }
+  const setSF  = (i, t)   => { if (!isKnockoutLocked()) { const sf=[...pred.semifinalists]; sf[i]=t; setPred(p=>({...p,semifinalists:sf})) } }
+  const setKey = (k, v)   => { if (!isKnockoutLocked()) setPred(p => ({...p,[k]:v})) }
   const setMatchScore = (g, m, side, val) => {
-    if (isGroupLocked(g)) return
+    if (isMatchLocked(g, m.matchday)) return
     const key = matchKey(g, m)
     const num = val === '' ? '' : String(Math.max(0, parseInt(val) || 0))
     setPred(p => ({
       ...p,
-      matchScores: {
-        ...p.matchScores,
-        [key]: { ...(p.matchScores?.[key] || { h: '', a: '' }), [side]: num },
-      },
+      matchScores: { ...p.matchScores, [key]: { ...(p.matchScores?.[key] || {h:'',a:''}), [side]: num } },
     }))
   }
 
-  const doneCount    = GROUP_LETTERS.filter(g => pred.groupWinners[g]).length
-  const matchFilled  = Object.values(pred.matchScores || {}).filter(s => s.h !== '' && s.a !== '').length
-  const step0complete = GROUP_LETTERS
-    .filter(g => !isGroupLocked(g))
-    .every(g => pred.groupWinners[g])
-    && GROUP_LETTERS.some(g => pred.groupWinners[g])
-  const knockoutOk = pred.semifinalists.every(Boolean) && pred.finalist1 && pred.finalist2 && pred.winner && pred.topScorerCountry
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const matchFilled       = countMatchFilled(pred.matchScores)
+  const doneCount         = GROUP_LETTERS.filter(g => pred.groupWinners[g]).length
+  const semifinalistsDone = pred.semifinalists.every(Boolean) && pred.finalist1 && pred.finalist2
+  const championDone      = !!(pred.winner && pred.topScorerCountry)
+  const knockoutLocked    = isKnockoutLocked()
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LOGIN
@@ -217,7 +222,6 @@ export default function App() {
         <h1 style={{...C.gold, fontSize:26, margin:'12px 0 4px'}}>Mundial 2026 · Typer</h1>
         <p style={{...C.muted, margin:'0 0 6px', fontSize:13}}>🇺🇸 USA · 🇨🇦 Kanada · 🇲🇽 Meksyk</p>
         <p style={{...C.muted, margin:'0 0 28px', fontSize:12}}>11 czerwca – 19 lipca 2026 · 48 drużyn · 104 mecze</p>
-
         <input
           style={C.inp}
           value={nameInput}
@@ -230,13 +234,12 @@ export default function App() {
           style={{...C.btn('#d4a017','#000',nameInput.trim()?1:0.45), width:'100%', marginTop:14, fontSize:16, padding:'14px'}}>
           Typuj! →
         </button>
-
         <div style={{marginTop:20, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <span style={{...C.muted, fontSize:12}}>👥 {allPreds.length} {allPreds.length===1?'typowanie':'typowań'}</span>
           <div style={{display:'flex', gap:12}}>
             <button onClick={() => setView('leaderboard')}
               style={{...C.btn('transparent','#d4a017'), padding:'4px 0', fontSize:13, textDecoration:'underline'}}>
-              Podgląd →
+              Podgląd rankingu →
             </button>
             <button onClick={() => setView('rules')}
               style={{...C.btn('transparent','#6b7a8d'), padding:'4px 0', fontSize:13}}>
@@ -270,17 +273,17 @@ export default function App() {
             <span style={{...C.gold, fontWeight:800, fontSize:22}}>73 pkt</span>
           </div>
         </div>
-
         <div style={C.card({border:'1px solid #1e3a1e', marginBottom:16})}>
           <h4 style={{...C.green, margin:'0 0 10px'}}>🔒 Blokady typowania</h4>
           <ul style={{...C.muted, fontSize:13, lineHeight:1.9, margin:0, paddingLeft:18}}>
-            <li><strong style={{color:'#e2e8f0'}}>Zwycięzca grupy</strong> → blokuje się z kickoffem 1. meczu grupy</li>
-            <li><strong style={{color:'#e2e8f0'}}>Półfinały, finał, mistrz, top strzelec</strong> → blokuje się 28 czerwca (start Rundy 32)</li>
-            <li>Po zalogowaniu zobaczysz kiedy blokuje się każda grupa</li>
+            <li><strong style={{color:'#e2e8f0'}}>Wynik meczu (kolejka 1)</strong> → blokuje się z kickoffem 1. meczu grupy</li>
+            <li><strong style={{color:'#e2e8f0'}}>Wynik meczu (kolejka 2)</strong> → ~5 dni po starcie grupy</li>
+            <li><strong style={{color:'#e2e8f0'}}>Wynik meczu (kolejka 3)</strong> → ~10 dni po starcie grupy</li>
+            <li><strong style={{color:'#e2e8f0'}}>Zwycięzca grupy</strong> → z kickoffem 1. meczu grupy</li>
+            <li><strong style={{color:'#e2e8f0'}}>Faza pucharowa, mistrz, top strzelec</strong> → 28 czerwca (start Rundy 32)</li>
           </ul>
         </div>
-
-        <div style={C.card({border:'1px solid #1e2d3d'})}>
+        <div style={C.card()}>
           <h4 style={{...C.gold, margin:'0 0 10px'}}>📅 Blokady grup (czas warszawski)</h4>
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:6}}>
             {GROUP_LETTERS.map(g => (
@@ -300,15 +303,15 @@ export default function App() {
   )
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // LEADERBOARD
+  // LEADERBOARD / RANKING
   // ═══════════════════════════════════════════════════════════════════════════
   if (view === 'leaderboard') return (
     <div style={C.page}>
       {toast && <Toast msg={toast}/>}
       <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved}/>
-      <div style={{maxWidth:1200, margin:'24px auto', padding:'0 16px'}}>
+      <div style={{maxWidth:1300, margin:'24px auto', padding:'0 16px'}}>
         <div style={{display:'flex', alignItems:'baseline', gap:12, marginBottom:20}}>
-          <h2 style={{...C.gold, margin:0}}>Typowania ({allPreds.length})</h2>
+          <h2 style={{...C.gold, margin:0}}>📊 Ranking uczestników ({allPreds.length})</h2>
           <span style={{...C.muted, fontSize:12}}>• aktualizuje się na żywo</span>
         </div>
 
@@ -323,62 +326,76 @@ export default function App() {
                            borderRadius:14, overflow:'hidden', fontSize:13}}>
               <thead>
                 <tr style={{background:'#111820'}}>
-                  <th style={{padding:'12px 16px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap'}}>Gracz</th>
+                  <th style={{padding:'12px 16px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', minWidth:130}}>Uczestnik</th>
+                  <th style={{padding:'12px 8px', color:'#67d7f5', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>⚽ Mecze</th>
                   {GROUP_LETTERS.map(g => (
-                    <th key={g} style={{padding:'12px 6px', color: isGroupLocked(g)?'#f87171':'#6b7a8d',
+                    <th key={g} style={{padding:'12px 5px', color: isGroupLocked(g)?'#f87171':'#6b7a8d',
                                         textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>
-                      {isGroupLocked(g)?'🔒':''} {g}
+                      {isGroupLocked(g)?'🔒':''}{g}
                     </th>
                   ))}
-                  <th style={{padding:'12px 8px', color:'#6b7a8d', textAlign:'center', fontSize:11}}>⚔️ PF</th>
-                  <th style={{padding:'12px 8px', color:'#6b7a8d', textAlign:'center', fontSize:11}}>🎖️ Fin</th>
-                  <th style={{padding:'12px 8px', color:'#d4a017', textAlign:'center', fontSize:12}}>🏆 Mistrz</th>
-                  <th style={{padding:'12px 8px', color:'#67d7f5', textAlign:'center', fontSize:11}}>⚽ Top</th>
+                  <th style={{padding:'12px 6px', color:'#6b7a8d', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>⚔️ Półf.</th>
+                  <th style={{padding:'12px 6px', color:'#6b7a8d', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>🎖️ Fin.</th>
+                  <th style={{padding:'12px 8px', color:'#d4a017', textAlign:'center', fontSize:12, whiteSpace:'nowrap'}}>🏆 Mistrz</th>
+                  <th style={{padding:'12px 8px', color:'#67d7f5', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>⚽ Top</th>
                 </tr>
               </thead>
               <tbody>
-                {allPreds.map((p, i) => (
-                  <tr key={i} style={{borderTop:'1px solid #1e2d3d',
-                                       background: p.username===username?'rgba(212,160,23,0.05)':'transparent'}}>
-                    <td style={{padding:'10px 16px', fontWeight:700, whiteSpace:'nowrap',
-                                color: p.username===username?'#d4a017':'#e2e8f0'}}>
-                      {p.username===username?'👤 ':''}{p.username}
-                      <div style={{...C.muted, fontSize:10, fontWeight:400}}>
-                        {p.updated_at ? new Date(p.updated_at).toLocaleString('pl-PL',{
-                          day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'
-                        }) : ''}
-                      </div>
-                    </td>
-                    {GROUP_LETTERS.map(g => {
-                      const t = p.data?.groupWinners?.[g]
-                      return (
-                        <td key={g} style={{padding:'8px 4px', textAlign:'center'}}>
-                          {t
-                            ? <span title={t} style={{fontSize:18, cursor:'help'}}>{FLAGS[t]||'🏳️'}</span>
-                            : <span style={{color:'#2a3f55'}}>—</span>}
-                        </td>
-                      )
-                    })}
-                    <td style={{padding:'8px', textAlign:'center', fontSize:16}}>
-                      {(p.data?.semifinalists||[]).filter(Boolean).map(t=>FLAGS[t]||'').join(' ')||<span style={{color:'#2a3f55'}}>—</span>}
-                    </td>
-                    <td style={{padding:'8px', textAlign:'center', fontSize:13}}>
-                      {p.data?.finalist1 && p.data?.finalist2
-                        ? <span style={{color:'#aab4be'}}>{FLAGS[p.data.finalist1]||''} vs {FLAGS[p.data.finalist2]||''}</span>
-                        : <span style={{color:'#2a3f55'}}>—</span>}
-                    </td>
-                    <td style={{padding:'8px 12px', textAlign:'center', fontWeight:700, color:'#f0b429', whiteSpace:'nowrap', fontSize:14}}>
-                      {p.data?.winner
-                        ? `${FLAGS[p.data.winner]||''} ${p.data.winner}`
-                        : <span style={{color:'#2a3f55'}}>—</span>}
-                    </td>
-                    <td style={{padding:'8px 12px', textAlign:'center', color:'#67d7f5', whiteSpace:'nowrap', fontSize:13}}>
-                      {p.data?.topScorerCountry
-                        ? `${FLAGS[p.data.topScorerCountry]||''} ${p.data.topScorerCountry}`
-                        : <span style={{color:'#2a3f55'}}>—</span>}
-                    </td>
-                  </tr>
-                ))}
+                {allPreds.map((p, i) => {
+                  const mFilled = countMatchFilled(p.data?.matchScores)
+                  const isMe = p.username === username
+                  return (
+                    <tr key={i} style={{borderTop:'1px solid #1e2d3d',
+                                         background: isMe ? 'rgba(212,160,23,0.06)' : 'transparent'}}>
+                      <td style={{padding:'10px 16px', fontWeight:700, whiteSpace:'nowrap',
+                                  color: isMe ? '#d4a017' : '#e2e8f0'}}>
+                        {isMe ? '👤 ' : `${i+1}. `}{p.username}
+                        <div style={{...C.muted, fontSize:10, fontWeight:400}}>
+                          {p.updated_at ? new Date(p.updated_at).toLocaleString('pl-PL',{
+                            day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'
+                          }) : ''}
+                        </div>
+                      </td>
+                      <td style={{padding:'8px', textAlign:'center'}}>
+                        <span style={{
+                          fontSize:12, fontWeight:700,
+                          color: mFilled===72 ? '#4ade80' : mFilled > 0 ? '#f0b429' : '#2a3f55',
+                        }}>
+                          {mFilled}/72
+                        </span>
+                      </td>
+                      {GROUP_LETTERS.map(g => {
+                        const t = p.data?.groupWinners?.[g]
+                        return (
+                          <td key={g} style={{padding:'8px 3px', textAlign:'center'}}>
+                            {t
+                              ? <span title={t} style={{fontSize:17, cursor:'help'}}>{FLAGS[t]||'🏳️'}</span>
+                              : <span style={{color:'#2a3f55'}}>—</span>}
+                          </td>
+                        )
+                      })}
+                      <td style={{padding:'8px', textAlign:'center', fontSize:15}}>
+                        {(p.data?.semifinalists||[]).filter(Boolean).map(t=>FLAGS[t]||'').join('')
+                          || <span style={{color:'#2a3f55'}}>—</span>}
+                      </td>
+                      <td style={{padding:'8px', textAlign:'center', fontSize:13, whiteSpace:'nowrap'}}>
+                        {p.data?.finalist1 && p.data?.finalist2
+                          ? <span style={{color:'#aab4be'}}>{FLAGS[p.data.finalist1]||''} {FLAGS[p.data.finalist2]||''}</span>
+                          : <span style={{color:'#2a3f55'}}>—</span>}
+                      </td>
+                      <td style={{padding:'8px 10px', textAlign:'center', fontWeight:700, color:'#f0b429', whiteSpace:'nowrap', fontSize:13}}>
+                        {p.data?.winner
+                          ? `${FLAGS[p.data.winner]||''} ${p.data.winner}`
+                          : <span style={{color:'#2a3f55'}}>—</span>}
+                      </td>
+                      <td style={{padding:'8px 10px', textAlign:'center', color:'#67d7f5', whiteSpace:'nowrap', fontSize:13}}>
+                        {p.data?.topScorerCountry
+                          ? `${FLAGS[p.data.topScorerCountry]||''} ${p.data.topScorerCountry}`
+                          : <span style={{color:'#2a3f55'}}>—</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -391,10 +408,8 @@ export default function App() {
   )
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PREDICT
+  // PREDICT – 5 kroków
   // ═══════════════════════════════════════════════════════════════════════════
-  const knockoutLocked = isKnockoutLocked()
-
   return (
     <div style={C.page}>
       {toast && <Toast msg={toast}/>}
@@ -402,129 +417,58 @@ export default function App() {
 
       <div style={{maxWidth:1000, margin:'0 auto', padding:'20px 16px 40px'}}>
 
-        {/* Step tabs */}
-        <div style={{display:'flex', gap:6, marginBottom:24, flexWrap:'wrap'}}>
+        {/* ── TABY KROKÓW ───────────────────────────────────────────────── */}
+        <div style={{display:'flex', gap:4, marginBottom:24}}>
           {[
-            {icon:'🏆', label:'Grupy (A–L)',     ok: doneCount > 0},
-            {icon:'⚽', label:'Mecze grupowe',    ok: matchFilled > 0},
-            {icon:'⚔️', label:'Faza pucharowa',  ok: knockoutOk},
-            {icon:'📋', label:'Podsumowanie',     ok: false},
+            {icon:'⚽', label:'Mecze',  ok: matchFilled > 0},
+            {icon:'🏆', label:'Grupy',  ok: doneCount > 0},
+            {icon:'⚔️', label:'Puchar', ok: semifinalistsDone},
+            {icon:'🥇', label:'Mistrz', ok: championDone},
+            {icon:'📋', label:'Zapis',  ok: false},
           ].map(({icon,label,ok},i) => (
             <button key={i} onClick={()=>setStep(i)} style={{
-              flex:1, minWidth:0, padding:'10px 6px',
-              background: step===i?'#d4a017':ok?'#1a2e1a':'#161d27',
-              color: step===i?'#000':ok?'#4ade80':'#6b7a8d',
-              border:`1px solid ${step===i?'#d4a017':ok?'#2a4d2a':'#1e2d3d'}`,
-              borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:step===i?700:500,
-              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+              flex:1, minWidth:0, padding:'10px 4px',
+              background: step===i ? '#d4a017' : ok ? '#1a2e1a' : '#161d27',
+              color: step===i ? '#000' : ok ? '#4ade80' : '#6b7a8d',
+              border:`1px solid ${step===i ? '#d4a017' : ok ? '#2a4d2a' : '#1e2d3d'}`,
+              borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:step===i?700:500,
             }}>
-              {icon} {label}{ok&&step!==i?' ✓':''}
+              {icon} {label}{ok && step!==i ? ' ✓' : ''}
             </button>
           ))}
         </div>
 
-        {/* ── STEP 0: GRUPY ─────────────────────────────────────────────── */}
+        {/* ── KROK 0: MECZE GRUPOWE ─────────────────────────────────────── */}
         {step === 0 && (<>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:16}}>
-            <h3 style={{margin:0}}>Kto wygra każdą grupę?</h3>
+            <h3 style={{margin:0}}>⚽ Wyniki meczów grupowych</h3>
             <span style={{...C.muted, fontSize:13}}>
-              {doneCount}/12 grup
-              {doneCount === 12 && <span style={C.gold}> ✓ Komplet!</span>}
-            </span>
-          </div>
-
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(255px,1fr))', gap:12, marginBottom:20}}>
-            {GROUP_LETTERS.map(g => {
-              const locked = isGroupLocked(g)
-              return (
-                <div key={g} style={C.card({
-                  border: pred.groupWinners[g] ? '1px solid #d4a017' : '1px solid #1e2d3d',
-                  opacity: locked ? 0.75 : 1,
-                })}>
-                  <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
-                    <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:13, borderRadius:6, padding:'2px 10px'}}>
-                      GR {g}
-                    </span>
-                    <LockBadge lockTime={GROUP_LOCK_UTC[g]}/>
-                    {pred.groupWinners[g] && (
-                      <span style={{...C.gold, fontSize:12, fontWeight:600, marginLeft:'auto'}}>
-                        {FLAGS[pred.groupWinners[g]]||''} {pred.groupWinners[g]}
-                      </span>
-                    )}
-                  </div>
-
-                  {GROUPS[g].map(team => (
-                    <label key={team} style={{
-                      display:'flex', alignItems:'center', gap:10,
-                      padding:'8px 10px', borderRadius:8,
-                      cursor: locked ? 'not-allowed' : 'pointer',
-                      background: pred.groupWinners[g]===team ? 'rgba(212,160,23,0.1)' : 'transparent',
-                      marginBottom:3, transition:'background 0.1s',
-                    }}>
-                      <input
-                        type="radio"
-                        name={`g${g}`}
-                        disabled={locked}
-                        checked={pred.groupWinners[g]===team}
-                        onChange={() => setGW(g, team)}
-                        style={{accentColor:'#d4a017', width:16, height:16}}
-                      />
-                      <span style={{color: pred.groupWinners[g]===team?'#f0b429':locked?'#4a5568':'#bcc6d4', fontSize:14}}>
-                        {FLAGS[team]||'🏳️'} {team}
-                      </span>
-                    </label>
-                  ))}
-
-                  {locked && !pred.groupWinners[g] && (
-                    <p style={{...C.red, fontSize:12, marginTop:8, textAlign:'center'}}>
-                      ⚠️ Nie wytypowano przed blokadą
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          <div style={{display:'flex', justifyContent:'flex-end'}}>
-            <button onClick={()=>setStep(1)} style={C.btn('#d4a017','#000')}>
-              Dalej → Mecze grupowe
-            </button>
-          </div>
-        </>)}
-
-        {/* ── STEP 1: MECZE GRUPOWE ─────────────────────────────────────── */}
-        {step === 1 && (<>
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:16}}>
-            <h3 style={{margin:0}}>Wyniki meczów grupowych</h3>
-            <span style={{...C.muted, fontSize:13}}>
-              {matchFilled}/72 meczów
-              {matchFilled === 72 && <span style={C.gold}> ✓ Komplet!</span>}
+              {matchFilled}/72{matchFilled===72 && <span style={C.gold}> ✓</span>}
             </span>
           </div>
 
           {/* Zakładki grup */}
-          <div style={{display:'flex', gap:4, flexWrap:'wrap', marginBottom:16}}>
+          <div style={{display:'flex', gap:4, flexWrap:'wrap', marginBottom:14}}>
             {GROUP_LETTERS.map(g => {
               const gFilled = MATCHES[g].filter(m => {
                 const s = pred.matchScores?.[matchKey(g, m)]
                 return s?.h !== '' && s?.a !== ''
               }).length
-              const locked = isGroupLocked(g)
+              const allLocked = [1,2,3].every(md => isMatchLocked(g, md))
               return (
                 <button key={g} onClick={() => setMatchGroup(g)} style={{
-                  padding:'6px 12px',
-                  background: matchGroup===g ? '#d4a017' : locked ? '#1a1010' : '#1e2d3d',
-                  color: matchGroup===g ? '#000' : locked ? '#f87171' : '#e2e8f0',
-                  border:'1px solid ' + (matchGroup===g ? '#d4a017' : locked ? '#3a1a1a' : '#2a3f55'),
+                  padding:'5px 13px', position:'relative',
+                  background: matchGroup===g ? '#d4a017' : allLocked ? '#1a1010' : '#1e2d3d',
+                  color: matchGroup===g ? '#000' : allLocked ? '#f87171' : '#e2e8f0',
+                  border:'1px solid ' + (matchGroup===g ? '#d4a017' : allLocked ? '#3a1a1a' : '#2a3f55'),
                   borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:13,
-                  position:'relative',
                 }}>
                   {g}
                   {gFilled > 0 && (
                     <span style={{
-                      fontSize:9, position:'absolute', top:-4, right:-4,
+                      fontSize:9, position:'absolute', top:-5, right:-5,
                       background: gFilled===6 ? '#4ade80' : '#d4a017',
-                      color:'#000', borderRadius:8, padding:'1px 4px', fontWeight:800,
+                      color:'#000', borderRadius:8, padding:'1px 5px', fontWeight:800,
                     }}>{gFilled}</span>
                   )}
                 </button>
@@ -536,8 +480,7 @@ export default function App() {
           <div style={C.card()}>
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16, flexWrap:'wrap'}}>
               <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:14,
-                             borderRadius:6, padding:'3px 12px'}}>GRUPA {matchGroup}</span>
-              <LockBadge lockTime={GROUP_LOCK_UTC[matchGroup]}/>
+                             borderRadius:6, padding:'3px 14px'}}>GRUPA {matchGroup}</span>
               <span style={{...C.muted, fontSize:12, marginLeft:'auto'}}>
                 {MATCHES[matchGroup].filter(m => {
                   const s = pred.matchScores?.[matchKey(matchGroup, m)]
@@ -546,97 +489,136 @@ export default function App() {
               </span>
             </div>
 
-            {[1,2,3].map(md => (
-              <div key={md}>
-                <div style={{...C.muted, fontSize:11, padding:'8px 0 6px',
-                             borderTop: md > 1 ? '1px solid #1e2d3d' : 'none',
-                             marginTop: md > 1 ? 8 : 0}}>
-                  Kolejka {md}
-                </div>
-                {MATCHES[matchGroup].filter(m => m.matchday === md).map(m => {
-                  const key   = matchKey(matchGroup, m)
-                  const score = pred.matchScores?.[key] || { h: '', a: '' }
-                  const locked = isGroupLocked(matchGroup)
-                  const filled = score.h !== '' && score.a !== ''
-                  return (
-                    <div key={key} style={{
-                      display:'grid', gridTemplateColumns:'1fr auto 1fr',
-                      alignItems:'center', gap:8, padding:'9px 4px',
-                      borderBottom:'1px solid #1a2333',
-                      background: filled ? 'rgba(212,160,23,0.04)' : 'transparent',
-                      borderRadius:6, marginBottom:2,
-                    }}>
-                      <span style={{textAlign:'right', fontSize:13,
-                                    color: filled ? '#e2e8f0' : '#8a9ab0', fontWeight: filled ? 600 : 400}}>
-                        {FLAGS[m.home]||'🏳️'} {m.home}
-                      </span>
-                      <div style={{display:'flex', alignItems:'center', gap:4}}>
-                        <input
-                          type="number" min="0" max="30"
-                          disabled={locked}
-                          value={score.h}
-                          onChange={e => setMatchScore(matchGroup, m, 'h', e.target.value)}
-                          style={{
-                            width:44, textAlign:'center', padding:'7px 4px',
-                            background: locked ? '#111820' : '#1e2d3d', color:'#e2e8f0',
-                            border:`1px solid ${filled ? '#d4a017' : '#2a3f55'}`,
-                            borderRadius:6, fontSize:16, fontWeight:700,
-                            opacity: locked ? 0.5 : 1, outline:'none',
-                          }}
-                        />
-                        <span style={{...C.muted, fontWeight:800, fontSize:16}}>:</span>
-                        <input
-                          type="number" min="0" max="30"
-                          disabled={locked}
-                          value={score.a}
-                          onChange={e => setMatchScore(matchGroup, m, 'a', e.target.value)}
-                          style={{
-                            width:44, textAlign:'center', padding:'7px 4px',
-                            background: locked ? '#111820' : '#1e2d3d', color:'#e2e8f0',
-                            border:`1px solid ${filled ? '#d4a017' : '#2a3f55'}`,
-                            borderRadius:6, fontSize:16, fontWeight:700,
-                            opacity: locked ? 0.5 : 1, outline:'none',
-                          }}
-                        />
+            {[1,2,3].map(md => {
+              const mdLocked = isMatchLocked(matchGroup, md)
+              return (
+                <div key={md} style={{
+                  marginBottom: md < 3 ? 4 : 0,
+                  paddingTop: md > 1 ? 14 : 0,
+                  borderTop: md > 1 ? '1px solid #1e2d3d' : 'none',
+                }}>
+                  <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                    <span style={{...C.muted, fontSize:12, fontWeight:600}}>Kolejka {md}</span>
+                    <LockBadge lockTime={getMatchLock(matchGroup, md)}/>
+                  </div>
+                  {MATCHES[matchGroup].filter(m => m.matchday === md).map(m => {
+                    const key   = matchKey(matchGroup, m)
+                    const score = pred.matchScores?.[key] || { h:'', a:'' }
+                    const filled = score.h !== '' && score.a !== ''
+                    return (
+                      <div key={key} style={{
+                        display:'grid', gridTemplateColumns:'1fr auto 1fr',
+                        alignItems:'center', gap:10, padding:'9px 6px', marginBottom:4,
+                        background: filled ? 'rgba(212,160,23,0.05)' : 'transparent',
+                        border: filled ? '1px solid rgba(212,160,23,0.2)' : '1px solid transparent',
+                        borderRadius:8,
+                      }}>
+                        <span style={{textAlign:'right', fontSize:14,
+                                      color: filled ? '#e2e8f0' : mdLocked ? '#4a5568' : '#bcc6d4',
+                                      fontWeight: filled ? 600 : 400}}>
+                          {FLAGS[m.home]||'🏳️'} {m.home}
+                        </span>
+                        <div style={{display:'flex', alignItems:'center', gap:5}}>
+                          <input {...scoreInput(score.h, e => setMatchScore(matchGroup, m, 'h', e.target.value), mdLocked)}/>
+                          <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
+                          <input {...scoreInput(score.a, e => setMatchScore(matchGroup, m, 'a', e.target.value), mdLocked)}/>
+                        </div>
+                        <span style={{textAlign:'left', fontSize:14,
+                                      color: filled ? '#e2e8f0' : mdLocked ? '#4a5568' : '#bcc6d4',
+                                      fontWeight: filled ? 600 : 400}}>
+                          {m.away} {FLAGS[m.away]||'🏳️'}
+                        </span>
                       </div>
-                      <span style={{textAlign:'left', fontSize:13,
-                                    color: filled ? '#e2e8f0' : '#8a9ab0', fontWeight: filled ? 600 : 400}}>
-                        {m.away} {FLAGS[m.away]||'🏳️'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
+                    )
+                  })}
+                </div>
+              )
+            })}
           </div>
 
-          <div style={{display:'flex', justifyContent:'space-between', marginTop:20}}>
-            <button onClick={()=>setStep(0)} style={C.btn('#1e2d3d','#ccc')}>← Grupy</button>
+          <div style={{display:'flex', justifyContent:'flex-end', marginTop:20}}>
+            <button onClick={()=>setStep(1)} style={C.btn('#d4a017','#000')}>
+              Dalej → Zwycięzcy grup
+            </button>
+          </div>
+        </>)}
+
+        {/* ── KROK 1: ZWYCIĘZCY GRUP ────────────────────────────────────── */}
+        {step === 1 && (<>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:16}}>
+            <h3 style={{margin:0}}>🏆 Kto wygra każdą grupę?</h3>
+            <span style={{...C.muted, fontSize:13}}>
+              {doneCount}/12{doneCount===12 && <span style={C.gold}> ✓ Komplet!</span>}
+            </span>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))', gap:12, marginBottom:20}}>
+            {GROUP_LETTERS.map(g => {
+              const locked = isGroupLocked(g)
+              return (
+                <div key={g} style={C.card({
+                  border: pred.groupWinners[g] ? '1px solid #d4a017' : '1px solid #1e2d3d',
+                  opacity: locked ? 0.75 : 1,
+                })}>
+                  <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
+                    <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:13,
+                                   borderRadius:6, padding:'2px 10px'}}>GR {g}</span>
+                    <LockBadge lockTime={GROUP_LOCK_UTC[g]}/>
+                    {pred.groupWinners[g] && (
+                      <span style={{...C.gold, fontSize:12, fontWeight:600, marginLeft:'auto'}}>
+                        {FLAGS[pred.groupWinners[g]]||''} {pred.groupWinners[g]}
+                      </span>
+                    )}
+                  </div>
+                  {GROUPS[g].map(team => (
+                    <label key={team} style={{
+                      display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:8,
+                      cursor: locked ? 'not-allowed' : 'pointer',
+                      background: pred.groupWinners[g]===team ? 'rgba(212,160,23,0.1)' : 'transparent',
+                      marginBottom:3,
+                    }}>
+                      <input type="radio" name={`g${g}`} disabled={locked}
+                        checked={pred.groupWinners[g]===team}
+                        onChange={() => setGW(g, team)}
+                        style={{accentColor:'#d4a017', width:16, height:16}}
+                      />
+                      <span style={{color: pred.groupWinners[g]===team ? '#f0b429' : locked ? '#4a5568' : '#bcc6d4', fontSize:14}}>
+                        {FLAGS[team]||'🏳️'} {team}
+                      </span>
+                    </label>
+                  ))}
+                  {locked && !pred.groupWinners[g] && (
+                    <p style={{...C.red, fontSize:12, marginTop:8, textAlign:'center'}}>
+                      ⚠️ Nie wytypowano przed blokadą
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{display:'flex', justifyContent:'space-between'}}>
+            <button onClick={()=>setStep(0)} style={C.btn('#1e2d3d','#ccc')}>← Mecze</button>
             <button onClick={()=>setStep(2)} style={C.btn('#d4a017','#000')}>Dalej → Faza pucharowa</button>
           </div>
         </>)}
 
-        {/* ── STEP 2: FAZA PUCHAROWA ────────────────────────────────────── */}
+        {/* ── KROK 2: FAZA PUCHAROWA ────────────────────────────────────── */}
         {step === 2 && (<>
-          <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:16}}>
-            <h3 style={{margin:0}}>Faza pucharowa</h3>
+          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
+            <h3 style={{margin:0}}>⚔️ Faza pucharowa</h3>
             <LockBadge lockTime={KNOCKOUT_LOCK_UTC}/>
           </div>
 
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20}}>
-            {/* Półfinały */}
             <div style={C.card()}>
-              <h4 style={{...C.gold, margin:'0 0 14px', fontSize:16}}>⚔️ Cztery półfinały</h4>
-              <p style={{...C.muted, fontSize:12, margin:'0 0 14px'}}>Które 4 drużyny dotrą do półfinałów?</p>
+              <h4 style={{...C.gold, margin:'0 0 6px', fontSize:16}}>⚔️ Cztery półfinaliści</h4>
+              <p style={{...C.muted, fontSize:12, margin:'0 0 16px'}}>Które 4 drużyny dotrą do półfinałów?</p>
               {[0,1,2,3].map(i => (
                 <div key={i} style={{marginBottom:12}}>
                   <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Półfinalista #{i+1}</label>
-                  <select
-                    disabled={knockoutLocked}
-                    value={pred.semifinalists[i]}
-                    onChange={e=>setSF(i,e.target.value)}
-                    style={{...C.sel, opacity:knockoutLocked?0.5:1, cursor:knockoutLocked?'not-allowed':'pointer'}}
-                  >
+                  <select disabled={knockoutLocked} value={pred.semifinalists[i]} onChange={e=>setSF(i,e.target.value)}
+                    style={{...C.sel, opacity:knockoutLocked?0.5:1, cursor:knockoutLocked?'not-allowed':'pointer'}}>
                     <option value="">— wybierz drużynę —</option>
                     {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
                   </select>
@@ -644,123 +626,172 @@ export default function App() {
               ))}
             </div>
 
-            {/* Finaliści + winner + top scorer */}
-            <div style={{display:'flex', flexDirection:'column', gap:12}}>
-              <div style={C.card()}>
-                <h4 style={{...C.gold, margin:'0 0 12px', fontSize:16}}>🎖️ Finaliści</h4>
-                {['finalist1','finalist2'].map((k,i)=>(
-                  <div key={k} style={{marginBottom:12}}>
-                    <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Finalista #{i+1}</label>
-                    <select
-                      disabled={knockoutLocked}
-                      value={pred[k]}
-                      onChange={e=>setKey(k,e.target.value)}
-                      style={{...C.sel, opacity:knockoutLocked?0.5:1}}
-                    >
-                      <option value="">— wybierz drużynę —</option>
-                      {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
-                    </select>
-                  </div>
-                ))}
-              </div>
-
-              <div style={C.card({border:'1px solid #3a5020', background:'#111c0f'})}>
-                <h4 style={{...C.gold, margin:'0 0 10px', fontSize:15}}>🏆 Mistrz Świata 2026</h4>
-                <select
-                  disabled={knockoutLocked}
-                  value={pred.winner}
-                  onChange={e=>setKey('winner',e.target.value)}
-                  style={{...C.sel, border:'1px solid #3a5020', opacity:knockoutLocked?0.5:1}}
-                >
-                  <option value="">— wybierz zwycięzcę —</option>
-                  {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
-                </select>
-              </div>
-
-              <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
-                <h4 style={{...C.sky, margin:'0 0 10px', fontSize:15}}>⚽ Kraj najlepszego strzelca</h4>
-                <select
-                  disabled={knockoutLocked}
-                  value={pred.topScorerCountry}
-                  onChange={e=>setKey('topScorerCountry',e.target.value)}
-                  style={{...C.sel, border:'1px solid #0e3050', opacity:knockoutLocked?0.5:1}}
-                >
-                  <option value="">— wybierz kraj —</option>
-                  {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
-                </select>
-              </div>
+            <div style={C.card()}>
+              <h4 style={{...C.gold, margin:'0 0 6px', fontSize:16}}>🎖️ Finaliści</h4>
+              <p style={{...C.muted, fontSize:12, margin:'0 0 16px'}}>Które 2 drużyny zagrają w finale?</p>
+              {['finalist1','finalist2'].map((k,i)=>(
+                <div key={k} style={{marginBottom:12}}>
+                  <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Finalista #{i+1}</label>
+                  <select disabled={knockoutLocked} value={pred[k]} onChange={e=>setKey(k,e.target.value)}
+                    style={{...C.sel, opacity:knockoutLocked?0.5:1}}>
+                    <option value="">— wybierz drużynę —</option>
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                  </select>
+                </div>
+              ))}
             </div>
           </div>
 
           <div style={{display:'flex', justifyContent:'space-between'}}>
-            <button onClick={()=>setStep(1)} style={C.btn('#1e2d3d','#ccc')}>← Mecze</button>
-            <button onClick={()=>setStep(3)} style={C.btn('#d4a017','#000')}>Dalej → Podsumowanie</button>
+            <button onClick={()=>setStep(1)} style={C.btn('#1e2d3d','#ccc')}>← Grupy</button>
+            <button onClick={()=>setStep(3)} style={C.btn('#d4a017','#000')}>Dalej → Mistrz świata</button>
           </div>
         </>)}
 
-        {/* ── STEP 3: PODSUMOWANIE ──────────────────────────────────────── */}
+        {/* ── KROK 3: MISTRZ ŚWIATA ─────────────────────────────────────── */}
         {step === 3 && (<>
-          <h3 style={{margin:'0 0 16px'}}>📋 Twoje typowanie – przegląd i zapis</h3>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24}}>
+          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
+            <h3 style={{margin:0}}>🥇 Mistrz Świata 2026</h3>
+            <LockBadge lockTime={KNOCKOUT_LOCK_UTC}/>
+          </div>
+
+          <div style={{maxWidth:480, display:'flex', flexDirection:'column', gap:16, marginBottom:24}}>
+            <div style={C.card({border:'1px solid #3a5020', background:'#111c0f'})}>
+              <h4 style={{...C.gold, margin:'0 0 12px', fontSize:16}}>🏆 Kto zostanie Mistrzem Świata 2026?</h4>
+              <select disabled={knockoutLocked} value={pred.winner} onChange={e=>setKey('winner',e.target.value)}
+                style={{...C.sel, border:'1px solid #3a5020', fontSize:15, padding:'12px 14px',
+                        opacity:knockoutLocked?0.5:1, cursor:knockoutLocked?'not-allowed':'pointer'}}>
+                <option value="">— wybierz zwycięzcę —</option>
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+              </select>
+              {pred.winner && (
+                <div style={{marginTop:14, textAlign:'center'}}>
+                  <div style={{fontSize:52}}>{FLAGS[pred.winner]||'🏆'}</div>
+                  <div style={{...C.gold, fontWeight:800, fontSize:22, marginTop:6}}>{pred.winner}</div>
+                </div>
+              )}
+            </div>
+
+            <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
+              <h4 style={{...C.sky, margin:'0 0 12px', fontSize:16}}>⚽ Kraj najlepszego strzelca turnieju</h4>
+              <select disabled={knockoutLocked} value={pred.topScorerCountry} onChange={e=>setKey('topScorerCountry',e.target.value)}
+                style={{...C.sel, border:'1px solid #0e3050', fontSize:15, padding:'12px 14px',
+                        opacity:knockoutLocked?0.5:1, cursor:knockoutLocked?'not-allowed':'pointer'}}>
+                <option value="">— wybierz kraj —</option>
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+              </select>
+              {pred.topScorerCountry && (
+                <div style={{marginTop:10, textAlign:'center', fontSize:32}}>
+                  {FLAGS[pred.topScorerCountry]||'⚽'}{' '}
+                  <span style={{...C.sky, fontSize:16, fontWeight:700}}>{pred.topScorerCountry}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{display:'flex', justifyContent:'space-between'}}>
+            <button onClick={()=>setStep(2)} style={C.btn('#1e2d3d','#ccc')}>← Puchar</button>
+            <button onClick={()=>setStep(4)} style={C.btn('#d4a017','#000')}>Dalej → Podsumowanie</button>
+          </div>
+        </>)}
+
+        {/* ── KROK 4: PODSUMOWANIE + ZAPIS ──────────────────────────────── */}
+        {step === 4 && (<>
+          <h3 style={{margin:'0 0 20px'}}>📋 Podsumowanie typowania</h3>
+
+          {/* Mecze summary */}
+          <div style={C.card({marginBottom:14})}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: matchFilled > 0 ? 10 : 0}}>
+              <span style={{...C.muted, fontSize:14}}>⚽ Wyniki meczów grupowych</span>
+              <span style={{fontWeight:700, fontSize:14,
+                            color: matchFilled===72 ? '#4ade80' : matchFilled > 0 ? '#f0b429' : '#6b7a8d'}}>
+                {matchFilled}/72
+              </span>
+            </div>
+            {matchFilled > 0 && (
+              <div style={{display:'flex', gap:5, flexWrap:'wrap'}}>
+                {GROUP_LETTERS.map(g => {
+                  const gF = MATCHES[g].filter(m => {
+                    const s = pred.matchScores?.[matchKey(g, m)]
+                    return s?.h !== '' && s?.a !== ''
+                  }).length
+                  return (
+                    <span key={g} style={{
+                      fontSize:11, padding:'2px 8px', borderRadius:4, fontWeight:700,
+                      background: gF===6 ? '#1a2e1a' : gF > 0 ? '#1e2520' : '#1e2d3d',
+                      color: gF===6 ? '#4ade80' : gF > 0 ? '#f0b429' : '#6b7a8d',
+                    }}>{g}: {gF}/6</span>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
             <div style={C.card()}>
-              <h4 style={{...C.gold, margin:'0 0 14px'}}>🏆 Zwycięzcy grup</h4>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:6}}>
+              <h4 style={{...C.gold, margin:'0 0 12px', fontSize:14}}>🏆 Zwycięzcy grup</h4>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:5}}>
                 {GROUP_LETTERS.map(g => (
-                  <div key={g} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px',
-                                       background: isGroupLocked(g)?'#1a1010':'#1e2d3d', borderRadius:6}}>
+                  <div key={g} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 8px',
+                                       background: isGroupLocked(g)?'#1a1010':'#1e2d3d', borderRadius:5}}>
                     <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:10,
-                                   borderRadius:4, padding:'1px 6px', minWidth:20, textAlign:'center'}}>{g}</span>
-                    <span style={{fontSize:13, color:'#e2e8f0'}}>
+                                   borderRadius:3, padding:'1px 5px', minWidth:16, textAlign:'center'}}>{g}</span>
+                    <span style={{fontSize:12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
                       {pred.groupWinners[g]
                         ? `${FLAGS[pred.groupWinners[g]]||''} ${pred.groupWinners[g]}`
-                        : <span style={{color: isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️ brak':'—'}</span>}
+                        : <span style={{color: isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️':'—'}</span>}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div style={{display:'flex', flexDirection:'column', gap:12}}>
+            <div style={{display:'flex', flexDirection:'column', gap:10}}>
               <div style={C.card()}>
-                <h4 style={{...C.gold, margin:'0 0 10px', fontSize:15}}>⚔️ Półfinaliści</h4>
+                <h4 style={{...C.gold, margin:'0 0 8px', fontSize:14}}>⚔️ Półfinaliści</h4>
                 {pred.semifinalists.map((t,i)=>(
-                  <div key={i} style={{color:'#bcc6d4', fontSize:14, marginBottom:4}}>
+                  <div key={i} style={{color:'#bcc6d4', fontSize:13, marginBottom:3}}>
                     #{i+1} {t ? `${FLAGS[t]||''} ${t}` : <span style={{color:'#2a3f55'}}>—</span>}
                   </div>
                 ))}
               </div>
               <div style={C.card()}>
-                <h4 style={{...C.gold, margin:'0 0 10px', fontSize:15}}>🎖️ Finał</h4>
-                <div style={{color:'#bcc6d4', fontSize:15}}>
-                  {pred.finalist1?`${FLAGS[pred.finalist1]||''} ${pred.finalist1}`:'—'}
+                <h4 style={{...C.gold, margin:'0 0 8px', fontSize:14}}>🎖️ Finał</h4>
+                <div style={{color:'#bcc6d4', fontSize:13}}>
+                  {pred.finalist1 ? `${FLAGS[pred.finalist1]||''} ${pred.finalist1}` : '—'}
                   <span style={{color:'#2a3f55'}}> vs </span>
-                  {pred.finalist2?`${FLAGS[pred.finalist2]||''} ${pred.finalist2}`:'—'}
+                  {pred.finalist2 ? `${FLAGS[pred.finalist2]||''} ${pred.finalist2}` : '—'}
                 </div>
               </div>
               <div style={C.card({border:'1px solid #3a5020', background:'#111c0f'})}>
                 <div style={{...C.muted, fontSize:11}}>🏆 MISTRZ ŚWIATA 2026</div>
-                <div style={{...C.gold, fontSize:20, fontWeight:800, marginTop:4}}>
-                  {pred.winner ? `${FLAGS[pred.winner]||''} ${pred.winner}` : <span style={{color:'#2a3f55', fontSize:14}}>Nie wybrano</span>}
+                <div style={{...C.gold, fontSize:18, fontWeight:800, marginTop:4}}>
+                  {pred.winner
+                    ? `${FLAGS[pred.winner]||''} ${pred.winner}`
+                    : <span style={{color:'#2a3f55', fontSize:13}}>Nie wybrano</span>}
                 </div>
               </div>
               <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
-                <div style={{...C.muted, fontSize:11}}>⚽ KRAJ NAJLEPSZEGO STRZELCA</div>
-                <div style={{...C.sky, fontSize:18, fontWeight:700, marginTop:4}}>
-                  {pred.topScorerCountry ? `${FLAGS[pred.topScorerCountry]||''} ${pred.topScorerCountry}` : <span style={{color:'#2a3f55', fontSize:14}}>Nie wybrano</span>}
+                <div style={{...C.muted, fontSize:11}}>⚽ KRAJ TOP STRZELCA</div>
+                <div style={{...C.sky, fontSize:16, fontWeight:700, marginTop:4}}>
+                  {pred.topScorerCountry
+                    ? `${FLAGS[pred.topScorerCountry]||''} ${pred.topScorerCountry}`
+                    : <span style={{color:'#2a3f55', fontSize:13}}>Nie wybrano</span>}
                 </div>
               </div>
             </div>
           </div>
 
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <button onClick={()=>setStep(2)} style={C.btn('#1e2d3d','#ccc')}>← Edytuj</button>
+            <button onClick={()=>setStep(3)} style={C.btn('#1e2d3d','#ccc')}>← Edytuj</button>
             <button onClick={handleSave} disabled={loading}
-              style={{...C.btn('#00c850','#fff'), padding:'14px 40px', fontSize:16,
+              style={{...C.btn('#00c850','#fff'), padding:'14px 36px', fontSize:16,
                       boxShadow:'0 4px 20px rgba(0,200,80,0.3)', opacity:loading?0.7:1}}>
-              {loading ? 'Zapisuję...' : '💾 Zapisz typowanie!'}
+              {loading ? 'Zapisuję...' : '💾 Zapisz i przejdź do rankingu!'}
             </button>
           </div>
         </>)}
+
       </div>
     </div>
   )

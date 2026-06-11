@@ -98,6 +98,15 @@ export const SCORING = [
 export const isGroupLocked = (group) => new Date() >= GROUP_LOCK_UTC[group]
 export const isKnockoutLocked = () => new Date() >= KNOCKOUT_LOCK_UTC
 
+// Blokada konkretnej kolejki w grupie (MD1 = kickoff 1. meczu, MD2 = +5 dni, MD3 = +10 dni)
+export const getMatchLock = (g, matchday) => {
+  const base = GROUP_LOCK_UTC[g]
+  if (matchday === 2) return new Date(base.getTime() + 5 * 24 * 60 * 60 * 1000)
+  if (matchday === 3) return new Date(base.getTime() + 10 * 24 * 60 * 60 * 1000)
+  return base
+}
+export const isMatchLocked = (g, matchday) => new Date() >= getMatchLock(g, matchday)
+
 export const formatLockTime = (dt) => {
   if (!dt) return ''
   return dt.toLocaleString('pl-PL', {
