@@ -10,7 +10,6 @@ import {
 } from './data/schedule'
 
 const ADMIN_PIN    = import.meta.env.VITE_ADMIN_PIN || '1234'
-const FOOTBALL_KEY = import.meta.env.VITE_FOOTBALL_API_KEY || ''
 
 // Mapowanie angielskich nazw API → polskich nazw w aplikacji
 const EN_TO_PL = {
@@ -207,12 +206,8 @@ export default function App() {
   }, [])
 
   const fetchAndSyncResults = useCallback(async () => {
-    if (!FOOTBALL_KEY) return
     try {
-      const res = await fetch(
-        'https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED',
-        { headers: { 'X-Auth-Token': FOOTBALL_KEY } }
-      )
+      const res = await fetch('/api/football')
       if (!res.ok) return
       const { matches = [] } = await res.json()
 
