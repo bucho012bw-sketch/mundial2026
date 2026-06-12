@@ -246,7 +246,7 @@ function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
             <button onClick={() => setView('rules')} style={C.btn('#1e2d3d','#6b7a8d')}>ℹ️</button>
           </Tip>
         )}
-        <Tip text="Panel wyników (admin)">
+        <Tip text="Admin">
           <button onClick={onAdminClick}
             style={C.btn(view==='admin'?'#d4a017':'#1e2d3d', view==='admin'?'#000':'#6b7a8d')}>⚙️</button>
         </Tip>
