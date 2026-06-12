@@ -298,25 +298,34 @@ export default function App() {
     try {
       const res = await fetch('/api/football')
       if (!res.ok) return
-      const { matches = [] } = await res.json()
+      const payload = await res.json()
+      const matches = payload.matches || []
 
-      const matchLookup = Object.fromEntries(
-        Object.entries(MATCHES).flatMap(([g, ms]) =>
-          ms.map(m => [`${m.home}|${m.away}`, matchKey(g, m)])
-        )
-      )
+      // mapowanie w obu kierunkach — API WC nie ma "prawdziwego" home/away w fazie grup
+      const matchLookup = Object.fromEntries([
+        ...Object.entries(MATCHES).flatMap(([g, ms]) =>
+          ms.map(m => [`${m.home}|${m.away}`, { key: matchKey(g, m), rev: false }])
+        ),
+        ...Object.entries(MATCHES).flatMap(([g, ms]) =>
+          ms.map(m => [`${m.away}|${m.home}`, { key: matchKey(g, m), rev: true }])
+        ),
+      ])
 
       const newScores = {}
       for (const m of matches) {
-        const homePl = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || ''
-        const awayPl = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || ''
-        if (!homePl || !awayPl) continue
-        const key = matchLookup[`${homePl}|${awayPl}`]
-        if (!key) continue
+        const apiHome = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || EN_TO_PL[m.homeTeam?.tla] || ''
+        const apiAway = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || EN_TO_PL[m.awayTeam?.tla] || ''
+        if (!apiHome || !apiAway) continue
+        const entry = matchLookup[`${apiHome}|${apiAway}`]
+        if (!entry) continue
         const ft = m.score?.fullTime
         if (ft?.home == null || ft?.away == null) continue
-        newScores[key] = { h: String(ft.home), a: String(ft.away) }
+        // jeśli lookup był po odwróconej parze, zamieniamy wynik
+        const h = entry.rev ? String(ft.away) : String(ft.home)
+        const a = entry.rev ? String(ft.home) : String(ft.away)
+        newScores[entry.key] = { h, a }
       }
+      setLastSync(new Date())
       if (Object.keys(newScores).length === 0) return
 
       const { data } = await supabase.from('results').select('*').eq('id', 'current').maybeSingle()
@@ -329,7 +338,7 @@ export default function App() {
         { id: 'current', data: merged, updated_at: new Date().toISOString() },
         { onConflict: 'id' }
       )
-      if (!error) { await loadResults(); setLastSync(new Date()) }
+      if (!error) await loadResults()
       else console.error('Supabase upsert error:', error)
     } catch (e) {
       console.error('Football API sync error:', e)

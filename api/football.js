@@ -4,7 +4,7 @@ export default async function handler(req, res) {
 
   try {
     const resp = await fetch(
-      'https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED',
+      'https://api.football-data.org/v4/competitions/WC/matches?season=2026',
       { headers: { 'X-Auth-Token': key } }
     )
     const data = await resp.json()
