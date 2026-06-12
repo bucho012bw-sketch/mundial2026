@@ -34,12 +34,6 @@ const EN_TO_PL = {
   'England':'Anglia', 'Croatia':'Chorwacja', 'Ghana':'Ghana', 'Panama':'Panama',
 }
 
-// Słownik: "HomePolish|AwayPolish" → matchKey
-const MATCH_LOOKUP = Object.fromEntries(
-  Object.entries(MATCHES).flatMap(([g, ms]) =>
-    ms.map(m => [matchKey(g, m), { home: m.home, away: m.away, key: matchKey(g, m) }])
-  ).map(([, v]) => [`${v.home}|${v.away}`, v.key])
-)
 
 // ─── CSS helpers ──────────────────────────────────────────────────────────────
 const C = {
@@ -228,12 +222,18 @@ export default function App() {
       if (!res.ok) return
       const { matches = [] } = await res.json()
 
+      const matchLookup = Object.fromEntries(
+        Object.entries(MATCHES).flatMap(([g, ms]) =>
+          ms.map(m => [`${m.home}|${m.away}`, matchKey(g, m)])
+        )
+      )
+
       const newScores = {}
       for (const m of matches) {
         const homePl = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || ''
         const awayPl = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || ''
         if (!homePl || !awayPl) continue
-        const key = MATCH_LOOKUP[`${homePl}|${awayPl}`]
+        const key = matchLookup[`${homePl}|${awayPl}`]
         if (!key) continue
         const ft = m.score?.fullTime
         if (ft?.home == null || ft?.away == null) continue
