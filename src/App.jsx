@@ -13,25 +13,47 @@ const ADMIN_PIN    = import.meta.env.VITE_ADMIN_PIN || '1234'
 
 // Mapowanie angielskich nazw API → polskich nazw w aplikacji
 const EN_TO_PL = {
-  'Mexico':'Meksyk', 'South Africa':'RPA', 'Korea Republic':'Korea Płd.',
-  'South Korea':'Korea Płd.', 'Czechia':'Czechy', 'Czech Republic':'Czechy',
-  'Canada':'Kanada', 'Bosnia and Herzegovina':'Bośnia i Herc.',
-  'Bosnia & Herzegovina':'Bośnia i Herc.', 'Bosnia-Herzegovina':'Bośnia i Herc.',
+  // Grupa A
+  'Mexico':'Meksyk', 'South Africa':'RPA',
+  'Korea Republic':'Korea Płd.', 'South Korea':'Korea Płd.',
+  'Czechia':'Czechy', 'Czech Republic':'Czechy',
+  // Grupa B
+  'Canada':'Kanada',
+  'Bosnia and Herzegovina':'Bośnia i Herc.', 'Bosnia & Herzegovina':'Bośnia i Herc.',
+  'Bosnia-Herzegovina':'Bośnia i Herc.', 'Bosnia Herzegovina':'Bośnia i Herc.',
   'Qatar':'Katar', 'Switzerland':'Szwajcaria',
+  // Grupa C
   'Brazil':'Brazylia', 'Morocco':'Maroko', 'Haiti':'Haiti', 'Scotland':'Szkocja',
-  'United States':'USA', 'USA':'USA', 'Paraguay':'Paragwaj', 'Australia':'Australia',
-  'Turkey':'Turcja', 'Türkiye':'Turcja', 'Germany':'Niemcy', 'Curaçao':'Curaçao',
+  // Grupa D
+  'United States':'USA', 'USA':'USA', 'US':'USA',
+  'Paraguay':'Paragwaj', 'Australia':'Australia',
+  'Turkey':'Turcja', 'Türkiye':'Turcja',
+  // Grupa E
+  'Germany':'Niemcy', 'Curaçao':'Curaçao', 'Curacao':'Curaçao',
   "Côte d'Ivoire":'Wybrzeże K.Śł.', 'Ivory Coast':'Wybrzeże K.Śł.',
-  'Ecuador':'Ekwador', 'Netherlands':'Holandia', 'Japan':'Japonia',
-  'Sweden':'Szwecja', 'Tunisia':'Tunezja', 'Belgium':'Belgia', 'Egypt':'Egipt',
-  'Iran':'Iran', 'New Zealand':'Nowa Zelandia', 'Spain':'Hiszpania',
-  'Cape Verde':'Cabo Verde', 'Saudi Arabia':'Arabia Saud.', 'Uruguay':'Urugwaj',
-  'Cape Verde Islands':'Cabo Verde', 'Cape Verde':'Cabo Verde',
-  'France':'Francja', 'Senegal':'Senegal', 'DR Congo':'DR Kongo',
-  'Congo DR':'DR Kongo', 'Democratic Republic of Congo':'DR Kongo',
-  'Norway':'Norwegia', 'Argentina':'Argentyna', 'Algeria':'Algieria',
-  'Austria':'Austria', 'Jordan':'Jordania', 'Portugal':'Portugalia',
-  'Iraq':'Irak', 'Uzbekistan':'Uzbekistan', 'Colombia':'Kolumbia',
+  'Ecuador':'Ekwador',
+  // Grupa F
+  'Netherlands':'Holandia', 'Japan':'Japonia', 'Sweden':'Szwecja', 'Tunisia':'Tunezja',
+  // Grupa G
+  'Belgium':'Belgia', 'Egypt':'Egipt',
+  'Iran':'Iran', 'IR Iran':'Iran', 'Islamic Republic of Iran':'Iran',
+  'New Zealand':'Nowa Zelandia',
+  // Grupa H
+  'Spain':'Hiszpania',
+  'Cape Verde Islands':'Cabo Verde', 'Cape Verde':'Cabo Verde', 'Cabo Verde':'Cabo Verde',
+  'Saudi Arabia':'Arabia Saud.', 'Uruguay':'Urugwaj',
+  // Grupa I
+  'France':'Francja', 'Senegal':'Senegal',
+  'Iraq':'Irak', 'Norway':'Norwegia',
+  // Grupa J
+  'Argentina':'Argentyna', 'Algeria':'Algieria', 'Austria':'Austria',
+  'Jordan':'Jordania',
+  // Grupa K
+  'Portugal':'Portugalia',
+  'DR Congo':'DR Kongo', 'Congo DR':'DR Kongo',
+  'Democratic Republic of Congo':'DR Kongo', 'Congo, DR':'DR Kongo',
+  'Uzbekistan':'Uzbekistan', 'Colombia':'Kolumbia',
+  // Grupa L
   'England':'Anglia', 'Croatia':'Chorwacja', 'Ghana':'Ghana', 'Panama':'Panama',
 }
 
