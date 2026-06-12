@@ -9,7 +9,37 @@ import {
   calcScore,
 } from './data/schedule'
 
-const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '1234'
+const ADMIN_PIN    = import.meta.env.VITE_ADMIN_PIN || '1234'
+const FOOTBALL_KEY = import.meta.env.VITE_FOOTBALL_API_KEY || ''
+
+// Mapowanie angielskich nazw API → polskich nazw w aplikacji
+const EN_TO_PL = {
+  'Mexico':'Meksyk', 'South Africa':'RPA', 'Korea Republic':'Korea Płd.',
+  'South Korea':'Korea Płd.', 'Czechia':'Czechy', 'Czech Republic':'Czechy',
+  'Canada':'Kanada', 'Bosnia and Herzegovina':'Bośnia i Herc.',
+  'Bosnia & Herzegovina':'Bośnia i Herc.', 'Qatar':'Katar', 'Switzerland':'Szwajcaria',
+  'Brazil':'Brazylia', 'Morocco':'Maroko', 'Haiti':'Haiti', 'Scotland':'Szkocja',
+  'United States':'USA', 'USA':'USA', 'Paraguay':'Paragwaj', 'Australia':'Australia',
+  'Turkey':'Turcja', 'Türkiye':'Turcja', 'Germany':'Niemcy', 'Curaçao':'Curaçao',
+  "Côte d'Ivoire":'Wybrzeże K.Śł.', 'Ivory Coast':'Wybrzeże K.Śł.',
+  'Ecuador':'Ekwador', 'Netherlands':'Holandia', 'Japan':'Japonia',
+  'Sweden':'Szwecja', 'Tunisia':'Tunezja', 'Belgium':'Belgia', 'Egypt':'Egipt',
+  'Iran':'Iran', 'New Zealand':'Nowa Zelandia', 'Spain':'Hiszpania',
+  'Cape Verde':'Cabo Verde', 'Saudi Arabia':'Arabia Saud.', 'Uruguay':'Urugwaj',
+  'France':'Francja', 'Senegal':'Senegal', 'DR Congo':'DR Kongo',
+  'Congo DR':'DR Kongo', 'Democratic Republic of Congo':'DR Kongo',
+  'Norway':'Norwegia', 'Argentina':'Argentyna', 'Algeria':'Algieria',
+  'Austria':'Austria', 'Jordan':'Jordania', 'Portugal':'Portugalia',
+  'Iraq':'Irak', 'Uzbekistan':'Uzbekistan', 'Colombia':'Kolumbia',
+  'England':'Anglia', 'Croatia':'Chorwacja', 'Ghana':'Ghana', 'Panama':'Panama',
+}
+
+// Słownik: "HomePolish|AwayPolish" → matchKey
+const MATCH_LOOKUP = Object.fromEntries(
+  Object.entries(MATCHES).flatMap(([g, ms]) =>
+    ms.map(m => [matchKey(g, m), { home: m.home, away: m.away, key: matchKey(g, m) }])
+  ).map(([, v]) => [`${v.home}|${v.away}`, v.key])
+)
 
 // ─── CSS helpers ──────────────────────────────────────────────────────────────
 const C = {
@@ -157,6 +187,12 @@ export default function App() {
     return () => clearInterval(id)
   }, [])
 
+  useEffect(() => {
+    fetchAndSyncResults()
+    const id = setInterval(fetchAndSyncResults, 10 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [fetchAndSyncResults])
+
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
   // ── Supabase ─────────────────────────────────────────────────────────────
@@ -179,6 +215,44 @@ export default function App() {
       }
       setResults(r)
       setResultsDraft(r)
+    }
+  }, [])
+
+  const fetchAndSyncResults = useCallback(async () => {
+    if (!FOOTBALL_KEY) return
+    try {
+      const res = await fetch(
+        'https://api.football-data.org/v4/competitions/WC/matches?status=FINISHED',
+        { headers: { 'X-Auth-Token': FOOTBALL_KEY } }
+      )
+      if (!res.ok) return
+      const { matches = [] } = await res.json()
+
+      const newScores = {}
+      for (const m of matches) {
+        const homePl = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || ''
+        const awayPl = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || ''
+        if (!homePl || !awayPl) continue
+        const key = MATCH_LOOKUP[`${homePl}|${awayPl}`]
+        if (!key) continue
+        const ft = m.score?.fullTime
+        if (ft?.home == null || ft?.away == null) continue
+        newScores[key] = { h: String(ft.home), a: String(ft.away) }
+      }
+      if (Object.keys(newScores).length === 0) return
+
+      const { data } = await supabase.from('results').select('*').eq('id', 'current').maybeSingle()
+      const current = data?.data || {}
+      const merged = {
+        ...EMPTY_RESULTS, ...current,
+        matchScores: { ...EMPTY_RESULTS.matchScores, ...(current.matchScores || {}), ...newScores },
+      }
+      await supabase.from('results').upsert(
+        { id: 'current', data: merged, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      )
+    } catch (e) {
+      console.error('Football API sync error:', e)
     }
   }, [])
 
