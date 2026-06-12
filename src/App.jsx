@@ -319,7 +319,7 @@ export default function App() {
     localStorage.setItem('mundial_session', JSON.stringify({ name, pin }))
   }
 
-  const handleSave = async () => {
+  const handleSave = async (redirectAfter = true) => {
     setLoading(true)
     const { error } = await supabase.from('predictions').upsert(
       { username, data: { ...pred, pin: userPin }, updated_at: new Date().toISOString() },
@@ -328,7 +328,7 @@ export default function App() {
     if (!error) {
       setSaved(true); showToast('✅ Typowanie zapisane!')
       await loadAll()
-      setTimeout(() => setView('leaderboard'), 800)
+      if (redirectAfter) setTimeout(() => setView('leaderboard'), 800)
     } else {
       showToast('❌ Błąd zapisu – spróbuj ponownie.'); console.error(error)
     }
@@ -375,6 +375,7 @@ export default function App() {
   const setKey = (k, v)   => { if (!isKnockoutLocked()) setPred(p => ({...p,[k]:v})) }
   const setMatchScore = (g, m, side, val) => {
     if (isMatchLocked(g, m.matchday)) return
+    setSaved(false)
     const key = matchKey(g, m)
     const num = val.replace(/\D/g,'')
     setPred(p => ({ ...p, matchScores: { ...p.matchScores, [key]: { ...(p.matchScores?.[key]||{h:'',a:''}), [side]: num } } }))
@@ -1006,7 +1007,14 @@ export default function App() {
             })}
           </div>
 
-          <div style={{display:'flex', justifyContent:'flex-end', marginTop:20}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20}}>
+            {username && (
+              <button onClick={() => handleSave(false)} disabled={loading || saved}
+                style={{...C.btn(saved?'#1a2e1a':'#00c850', saved?'#4ade80':'#fff'),
+                  opacity: loading ? 0.7 : 1, fontWeight:700}}>
+                {loading ? 'Zapisuję...' : saved ? '✅ Zapisano' : '💾 Zapisz zmiany'}
+              </button>
+            )}
             <button onClick={()=>setStep(1)} style={C.btn('#d4a017','#000')}>Dalej → Zwycięzcy grup</button>
           </div>
         </>)}
