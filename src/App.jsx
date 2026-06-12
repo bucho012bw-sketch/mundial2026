@@ -58,6 +58,24 @@ const C = {
          border:'2px solid #2a3f55', borderRadius:10, fontSize:16, boxSizing:'border-box', outline:'none' },
 }
 
+function formatTimeAgo(dt) {
+  if (!dt) return null
+  const mins = Math.floor((new Date() - dt) / 60000)
+  if (mins < 1) return 'przed chwilą'
+  if (mins < 60) return `${mins} min temu`
+  return `${Math.floor(mins / 60)}h ${mins % 60}m temu`
+}
+
+function formatCountdown(dt) {
+  const diff = dt - new Date()
+  if (diff <= 0) return null
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  if (h > 48) return `${Math.floor(h / 24)} dni`
+  if (h > 0) return `${h}h ${m}m`
+  return `${m} min`
+}
+
 function Toast({ msg }) {
   return (
     <div style={{
@@ -244,6 +262,7 @@ export default function App() {
   )
   const [, tick] = useState(0)
   const [rankTab, setRankTab] = useState('summary')
+  const [lastSync, setLastSync] = useState(null)
 
   useEffect(() => {
     const id = setInterval(() => tick(n => n+1), 60_000)
@@ -310,7 +329,7 @@ export default function App() {
         { id: 'current', data: merged, updated_at: new Date().toISOString() },
         { onConflict: 'id' }
       )
-      if (!error) await loadResults()
+      if (!error) { await loadResults(); setLastSync(new Date()) }
       else console.error('Supabase upsert error:', error)
     } catch (e) {
       console.error('Football API sync error:', e)
@@ -473,6 +492,37 @@ export default function App() {
   const scoredPreds = allPreds
     .map(p => ({ ...p, score: calcScore(p.data || {}, results) }))
     .sort((a,b) => b.score.total - a.score.total)
+
+  const calcMaxPts = (pData) => {
+    let max = 0
+    for (const [key, actual] of Object.entries(results.matchScores || {})) {
+      if (actual.h !== '' && actual.a !== '') continue
+      const p = pData?.matchScores?.[key]
+      if (p && p.h !== '' && p.a !== '') max += 4
+    }
+    GROUP_LETTERS.forEach(g => {
+      if (!results.groupWinners?.[g] && pData?.groupWinners?.[g]) max += 3
+    })
+    const actualSFs = (results.semifinalists || []).filter(Boolean)
+    ;(pData?.semifinalists || []).filter(Boolean).forEach(sf => {
+      if (!actualSFs.includes(sf)) max += 3
+    })
+    ;[pData?.finalist1, pData?.finalist2].forEach(f => {
+      if (f && ![results.finalist1, results.finalist2].includes(f)) max += 5
+    })
+    if (!results.winner && pData?.winner) max += 10
+    if (!results.topScorerCountry && pData?.topScorerCountry) max += 5
+    return max
+  }
+
+  const getNextLock = () => {
+    const now = new Date()
+    const candidates = [
+      ...GROUP_LETTERS.flatMap(g => [1, 2, 3].map(md => ({ time: getMatchLock(g, md), label: `Gr.${g} kol.${md}` }))),
+      { time: KNOCKOUT_LOCK_UTC, label: 'Bonus' },
+    ]
+    return candidates.filter(l => l.time > now).sort((a, b) => a.time - b.time)[0] || null
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ADMIN PIN MODAL
@@ -841,14 +891,23 @@ export default function App() {
       {AdminModal}
       <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
       <div style={{maxWidth:1400, margin:'24px auto', padding:'0 16px'}}>
-        <div style={{display:'flex', alignItems:'baseline', gap:12, marginBottom:16}}>
+        <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap'}}>
           <h2 style={{...C.gold, margin:0}}>📊 Ranking ({allPreds.length})</h2>
-          <span style={{...C.muted, fontSize:12}}>• aktualizuje się na żywo</span>
           {resultsEntered > 0 && (
             <span style={{fontSize:12, background:'#1a2e1a', color:'#4ade80', borderRadius:4, padding:'2px 8px'}}>
               ✅ {resultsEntered}/72 wyników
             </span>
           )}
+          {lastSync && (
+            <span style={{fontSize:11, color:'#4a5568'}}>
+              🔄 sync: {formatTimeAgo(lastSync)}
+            </span>
+          )}
+          {(() => { const nl = getNextLock(); return nl && formatCountdown(nl.time) ? (
+            <span style={{fontSize:11, background:'#1a1f10', color:'#d4a017', borderRadius:4, padding:'2px 8px', border:'1px solid #2a3a10'}}>
+              ⏳ {nl.label}: {formatCountdown(nl.time)}
+            </span>
+          ) : null })()}
         </div>
 
         {/* Tab navigation */}
@@ -881,6 +940,7 @@ export default function App() {
                     <th style={{padding:'12px 10px', color:'#67d7f5', textAlign:'center', whiteSpace:'nowrap'}}>⚽ Mecze</th>
                     <th style={{padding:'12px 10px', color:'#f0b429', textAlign:'center', whiteSpace:'nowrap'}}>🏆 Bonus</th>
                     <th style={{padding:'12px 10px', color:'#4ade80', textAlign:'center', whiteSpace:'nowrap', background:'rgba(74,222,128,0.07)'}}>Razem</th>
+                    <th style={{padding:'12px 6px', color:'#4a5568', textAlign:'center', whiteSpace:'nowrap', fontSize:11}}>max+</th>
                     {[1,2,3].map(md => (
                       <th key={md} style={{padding:'12px 8px', color:'#6b7a8d', textAlign:'center', fontSize:11}}>K{md}</th>
                     ))}
@@ -897,6 +957,7 @@ export default function App() {
                   {scoredPreds.map((p, i) => {
                     const isMe = p.username === username
                     const { matchPts, bonusPts, total } = p.score
+                    const maxRemaining = calcMaxPts(p.data)
                     const mdPts = [1,2,3].map(md =>
                       GROUP_LETTERS.flatMap(g => MATCHES[g].filter(m => m.matchday===md).map(m => ({...m, key:matchKey(g,m)})))
                         .reduce((acc,m) => acc + (getMatchPts(p.data, m.key, results.matchScores) ?? 0), 0)
@@ -921,6 +982,11 @@ export default function App() {
                         <td style={{padding:'8px 12px', textAlign:'center', background:'rgba(74,222,128,0.04)'}}>
                           <span style={{fontWeight:800, fontSize:16, color: total>0?'#4ade80':'#2a3f55'}}>{total}</span>
                         </td>
+                        <td style={{padding:'8px 6px', textAlign:'center'}}>
+                          {maxRemaining > 0
+                            ? <span style={{fontSize:11, color:'#4a5568', fontWeight:600}}>+{maxRemaining}</span>
+                            : <span style={{fontSize:11, color:'#2a3f55'}}>—</span>}
+                        </td>
                         {mdPts.map((pts, mi) => (
                           <td key={mi} style={{padding:'8px', textAlign:'center'}}>
                             <span style={{fontSize:12, fontWeight:700, color: pts>0?'#67d7f5':'#2a3f55'}}>{pts>0?pts:'—'}</span>
@@ -931,8 +997,12 @@ export default function App() {
                           const correct = results.groupWinners?.[g] && t === results.groupWinners[g]
                           return (
                             <td key={g} style={{padding:'8px 3px', textAlign:'center'}}>
-                              {t ? <span title={t} style={{opacity: correct?1:0.5}}><Flag team={t} size={16}/>{correct?'✓':''}</span>
-                                 : <span style={{color:'#2a3f55'}}>—</span>}
+                              {t ? (
+                                <span style={{opacity: correct?1:0.5, display:'inline-flex', flexDirection:'column', alignItems:'center', gap:1}}>
+                                  <Flag team={t} size={16}/>
+                                  <span style={{fontSize:8, color: correct?'#4ade80':'#6b7a8d', maxWidth:32, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t}</span>
+                                </span>
+                              ) : <span style={{color:'#2a3f55'}}>—</span>}
                             </td>
                           )
                         })}
@@ -957,16 +1027,127 @@ export default function App() {
           {rankTab === 'md2' && <MdTab md={2}/>}
           {rankTab === 'md3' && <MdTab md={3}/>}
 
-          {/* ── FAZY PUCHAROWE ───────────────────────────────── */}
-          {['r32','r16','qf','sf','third','final'].includes(rankTab) && (() => {
-            const labels = { r32:'1/16 finału', r16:'1/8 finału', qf:'Ćwierćfinały', sf:'Półfinały', third:'Mecz o 3. miejsce', final:'Finał' }
-            const dates  = { r32:'28 cze – 4 lip', r16:'4–7 lip', qf:'9–12 lip', sf:'14–15 lip', third:'18 lip', final:'19 lip 2026' }
+          {/* ── FAZY PUCHAROWE r32/r16/qf/third — placeholder ── */}
+          {['r32','r16','qf','third'].includes(rankTab) && (() => {
+            const labels = { r32:'1/16 finału', r16:'1/8 finału', qf:'Ćwierćfinały', third:'Mecz o 3. miejsce' }
+            const dates  = { r32:'28 cze – 4 lip', r16:'4–7 lip', qf:'9–12 lip', third:'18 lip' }
             return (
               <div style={{...C.card({border:'1px solid #1e2d3d'}), textAlign:'center', padding:'40px 20px'}}>
                 <div style={{fontSize:36, marginBottom:12}}>⚽</div>
                 <div style={{...C.gold, fontWeight:800, fontSize:18, marginBottom:6}}>{labels[rankTab]}</div>
                 <div style={{...C.muted, fontSize:13, marginBottom:16}}>{dates[rankTab]}</div>
                 <div style={{color:'#4a5568', fontSize:13}}>Typowanie meczów tej fazy pojawi się gdy znane będą pary</div>
+              </div>
+            )
+          })()}
+
+          {/* ── PÓŁFINAŁ — typowania półfinalistów ───────────── */}
+          {rankTab === 'sf' && (() => {
+            const sfVisible = allMd3Locked
+            return (
+              <div style={{overflowX:'auto'}}>
+                <div style={{...C.muted, fontSize:12, marginBottom:10}}>14–15 lipca 2026</div>
+                <table style={{borderCollapse:'collapse', fontSize:12, minWidth:'100%'}}>
+                  <thead>
+                    <tr style={{background:'#111820'}}>
+                      <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:'#111820', zIndex:2}}>Uczestnik</th>
+                      {[1,2,3,4].map(i => (
+                        <th key={i} style={{padding:'8px 10px', textAlign:'center', color:'#6b7a8d'}}>Półfinalista #{i}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{borderTop:'1px solid #2a3f55', background:'#0d1520'}}>
+                      <td style={{padding:'7px 10px', position:'sticky', left:0, background:'#0d1520', zIndex:1, color:'#4ade80', fontWeight:700}}>✅ Wynik</td>
+                      {[0,1,2,3].map(i => (
+                        <td key={i} style={{padding:'7px 10px', textAlign:'center', color:'#4ade80', fontWeight:700}}>
+                          {results.semifinalists?.[i] ? <><Flag team={results.semifinalists[i]} size={14}/> {results.semifinalists[i]}</> : '—'}
+                        </td>
+                      ))}
+                    </tr>
+                    {scoredPreds.map(p => {
+                      const isMe = p.username === username
+                      const visible = isMe || sfVisible
+                      return (
+                        <tr key={p.username} style={{borderTop:'1px solid #1e2d3d', background: isMe?'rgba(212,160,23,0.05)':'transparent'}}>
+                          <td style={{padding:'7px 10px', position:'sticky', left:0, background: isMe?'rgba(212,160,23,0.05)':'#161d27', zIndex:1, fontWeight:700, color: isMe?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
+                            {isMe?'👤 ':''}{p.username}
+                          </td>
+                          {[0,1,2,3].map(i => {
+                            if (!visible) return <td key={i} style={{padding:'6px', textAlign:'center'}}><span style={{color:'#2a3f55'}}>🔒</span></td>
+                            const sf = p.data?.semifinalists?.[i]
+                            const actualSFs = (results.semifinalists||[]).filter(Boolean)
+                            const correct = sf && actualSFs.length > 0 ? actualSFs.includes(sf) : null
+                            return (
+                              <td key={i} style={{padding:'7px 10px', textAlign:'center', background: correct===true?'rgba(74,222,128,0.12)':correct===false?'rgba(248,113,113,0.08)':'transparent'}}>
+                                {sf ? <span style={{color: correct===true?'#4ade80':correct===false?'#f87171':'#bcc6d4', fontWeight:600}}>
+                                  <Flag team={sf} size={14}/> {sf}{correct===true?' ✓':correct===false?' ✗':''}
+                                </span> : <span style={{color:'#2a3f55'}}>—</span>}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
+
+          {/* ── FINAŁ — typowania finalistów/mistrza ─────────── */}
+          {rankTab === 'final' && (() => {
+            const fnVisible = allMd3Locked
+            const finalRows = [
+              { label: 'Finalista 1', getVal: d => d?.finalist1, actual: results.finalist1,
+                isCorrect: d => results.finalist1 && [d?.finalist1, d?.finalist2].includes(results.finalist1) },
+              { label: 'Finalista 2', getVal: d => d?.finalist2, actual: results.finalist2,
+                isCorrect: d => results.finalist2 && [d?.finalist1, d?.finalist2].includes(results.finalist2) },
+              { label: '🏆 Mistrz Świata', getVal: d => d?.winner, actual: results.winner,
+                isCorrect: d => results.winner && d?.winner === results.winner },
+              { label: '⚽ Top strzelec (kraj)', getVal: d => d?.topScorerCountry, actual: results.topScorerCountry,
+                isCorrect: d => results.topScorerCountry && d?.topScorerCountry === results.topScorerCountry },
+            ]
+            return (
+              <div style={{overflowX:'auto'}}>
+                <div style={{...C.muted, fontSize:12, marginBottom:10}}>19 lipca 2026 · MetLife Stadium</div>
+                <table style={{borderCollapse:'collapse', fontSize:12, minWidth:'100%'}}>
+                  <thead>
+                    <tr style={{background:'#111820'}}>
+                      <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', position:'sticky', left:0, background:'#111820', zIndex:2}}>Pytanie</th>
+                      <th style={{padding:'8px 10px', textAlign:'center', color:'#4ade80'}}>Wynik</th>
+                      {scoredPreds.map(p => (
+                        <th key={p.username} style={{padding:'8px 8px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
+                          {p.username===username?'👤 ':''}{p.username}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {finalRows.map((row, ri) => (
+                      <tr key={ri} style={{borderTop:'1px solid #1e2d3d'}}>
+                        <td style={{padding:'7px 10px', position:'sticky', left:0, background:'#161d27', zIndex:1, color:'#bcc6d4', whiteSpace:'nowrap'}}>{row.label}</td>
+                        <td style={{padding:'7px 10px', textAlign:'center', color:'#4ade80', fontWeight:700}}>
+                          {row.actual ? <><Flag team={row.actual} size={14}/> {row.actual}</> : '—'}
+                        </td>
+                        {scoredPreds.map(p => {
+                          const isMe = p.username === username
+                          const visible = isMe || fnVisible
+                          if (!visible) return <td key={p.username} style={{padding:'6px', textAlign:'center'}}><span style={{color:'#2a3f55'}}>🔒</span></td>
+                          const val = row.getVal(p.data)
+                          const correct = row.isCorrect(p.data)
+                          return (
+                            <td key={p.username} style={{padding:'7px 8px', textAlign:'center', background: correct===true?'rgba(74,222,128,0.12)':correct===false?'rgba(248,113,113,0.08)':'transparent'}}>
+                              {val ? <span style={{color: correct===true?'#4ade80':correct===false?'#f87171':'#bcc6d4', fontWeight:600}}>
+                                <Flag team={val} size={14}/> {val}{correct===true?' ✓':correct===false?' ✗':''}
+                              </span> : <span style={{color:'#2a3f55'}}>—</span>}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )
           })()}
@@ -993,11 +1174,19 @@ export default function App() {
       {AdminModal}
       <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
       <div style={{maxWidth:1000, margin:'0 auto', padding:'20px 16px 40px'}}>
-        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:20}}>
+        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:20, flexWrap:'wrap'}}>
           <h2 style={{...C.gold, margin:0}}>⚙️ Panel wyników</h2>
           <span style={{...C.muted, fontSize:13}}>
             {Object.values(resultsDraft.matchScores||{}).filter(s=>s.h!==''&&s.a!=='').length}/72 meczów
           </span>
+          <button onClick={() => { fetchAndSyncResults().then(() => showToast('🔄 Synchronizacja zakończona!')) }}
+            disabled={loading}
+            style={{...C.btn('#1e2d3d','#67d7f5'), fontSize:12, padding:'6px 14px', marginLeft:'auto', opacity: loading?0.6:1}}>
+            🔄 Odśwież z API
+          </button>
+          {lastSync && (
+            <span style={{fontSize:11, color:'#4a5568'}}>sync: {formatTimeAgo(lastSync)}</span>
+          )}
         </div>
 
         {/* Admin tabs */}
@@ -1190,6 +1379,15 @@ export default function App() {
       <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
 
       <div style={{maxWidth:1000, margin:'0 auto', padding:'20px 16px 40px'}}>
+
+        {(() => { const nl = getNextLock(); const cd = nl && formatCountdown(nl.time); return cd ? (
+          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:14, background:'#0f1a0a', border:'1px solid #2a3a10', borderRadius:8, padding:'8px 14px'}}>
+            <span style={{fontSize:13}}>⏳</span>
+            <span style={{fontSize:13, color:'#d4a017', fontWeight:600}}>Następna blokada:</span>
+            <span style={{fontSize:13, color:'#e2e8f0', fontWeight:700}}>{nl.label}</span>
+            <span style={{fontSize:13, color:'#4ade80', fontWeight:800, marginLeft:4}}>za {cd}</span>
+          </div>
+        ) : null })()}
 
         <div style={{display:'flex', gap:4, marginBottom:24}}>
           {[
