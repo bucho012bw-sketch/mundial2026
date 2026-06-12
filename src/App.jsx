@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import {
   GROUPS, FLAGS, FLAG_CODES, GROUP_LETTERS, ALL_TEAMS,
@@ -255,6 +255,12 @@ export default function App() {
 
   useEffect(() => { loadAll(); loadResults() }, [loadAll, loadResults])
 
+  const savedRef = useRef(true)
+  useEffect(() => {
+    if (savedRef.current) { savedRef.current = false; return }
+    setSaved(false)
+  }, [pred])
+
   // ── Przywróć sesję po odświeżeniu ────────────────────────────────────────
   useEffect(() => {
     const saved = localStorage.getItem('mundial_session')
@@ -266,6 +272,7 @@ export default function App() {
           if (data?.data) {
             const storedPin = data.data.pin
             if (storedPin && storedPin !== pin) { localStorage.removeItem('mundial_session'); return }
+            savedRef.current = true
             setPred({
               ...EMPTY_PRED, ...data.data,
               groupWinners: { ...EMPTY_PRED.groupWinners, ...(data.data.groupWinners || {}) },
@@ -306,6 +313,7 @@ export default function App() {
     if (data?.data) {
       const storedPin = data.data.pin
       if (storedPin && storedPin !== pin) { setLoginErr('Nieprawidłowy PIN. Spróbuj ponownie.'); return }
+      savedRef.current = true
       setPred({
         ...EMPTY_PRED, ...data.data,
         groupWinners: { ...EMPTY_PRED.groupWinners, ...(data.data.groupWinners || {}) },
@@ -326,6 +334,7 @@ export default function App() {
       { onConflict:'username' }
     )
     if (!error) {
+      savedRef.current = true
       setSaved(true); showToast('✅ Typowanie zapisane!')
       await loadAll()
       if (redirectAfter) setTimeout(() => setView('leaderboard'), 800)
@@ -922,13 +931,13 @@ export default function App() {
                 style={{
                   padding:'8px 18px', borderRadius:8, fontWeight:700, fontSize:13,
                   cursor: (loading || saved) ? 'default' : 'pointer',
-                  border: saved ? '1px solid #2a4d2a' : '1px solid #00c850',
-                  background: saved ? '#0d1f0d' : '#00c850',
-                  color: saved ? '#4ade80' : '#000',
+                  border: saved ? '1px solid #3a4a3a' : '2px solid #00c850',
+                  background: saved ? 'transparent' : '#00c850',
+                  color: saved ? '#6b8c6b' : '#000',
                   opacity: loading ? 0.7 : 1,
                   whiteSpace:'nowrap',
                 }}>
-                {loading ? 'Zapisuję...' : saved ? '✅ Zapisano' : '💾 Zapisz zmiany'}
+                {loading ? 'Zapisuję...' : saved ? '✓ zapisano' : '💾 Zapisz zmiany'}
               </button>
             </div>
           </div>
