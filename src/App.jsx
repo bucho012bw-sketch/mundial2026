@@ -156,20 +156,20 @@ function Tip({ text, children }) {
       }}>
       {children}
       <span data-tip style={{
-        position:'absolute', bottom:'calc(100% + 6px)', left:'50%',
+        position:'absolute', top:'calc(100% + 6px)', left:'50%',
         transform:'translateX(-50%)',
         background:'#1a2535', color:'#e2e8f0', fontSize:11, fontWeight:500,
         padding:'5px 10px', borderRadius:6, whiteSpace:'nowrap',
         border:'1px solid #2a3f55', pointerEvents:'none',
         opacity:0, transition:'opacity 0.15s', zIndex:999,
       }}>
-        {text}
         <span style={{
-          position:'absolute', top:'100%', left:'50%', transform:'translateX(-50%)',
+          position:'absolute', bottom:'100%', left:'50%', transform:'translateX(-50%)',
           width:0, height:0,
           borderLeft:'5px solid transparent', borderRight:'5px solid transparent',
-          borderTop:'5px solid #2a3f55',
+          borderBottom:'5px solid #2a3f55',
         }}/>
+        {text}
       </span>
     </span>
   )
