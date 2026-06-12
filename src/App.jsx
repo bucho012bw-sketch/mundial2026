@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import {
-  GROUPS, FLAGS, GROUP_LETTERS, ALL_TEAMS,
+  GROUPS, FLAGS, FLAG_CODES, GROUP_LETTERS, ALL_TEAMS,
   SCORING_MATCHES, SCORING_BONUS,
   EMPTY_PRED, EMPTY_RESULTS, MATCHES, matchKey,
   GROUP_LOCK_UTC, KNOCKOUT_LOCK_UTC,
@@ -75,6 +75,20 @@ function ScoreInput({ val, onChange, locked }) {
         borderRadius:8, fontSize:18, fontWeight:700, outline:'none',
         cursor: locked ? 'not-allowed' : 'auto',
       }}
+    />
+  )
+}
+
+function Flag({ team, size = 20 }) {
+  const code = FLAG_CODES[team]
+  if (!code) return <span>🏳️</span>
+  const h = Math.round(size * 0.75)
+  return (
+    <img
+      src={`https://flagcdn.com/${size}x${h}/${code}.png`}
+      alt={team}
+      width={size} height={h}
+      style={{ verticalAlign: 'middle', display: 'inline-block', marginRight: 3 }}
     />
   )
 }
@@ -543,20 +557,21 @@ export default function App() {
                         return (
                           <td key={g} style={{padding:'8px 3px', textAlign:'center'}}>
                             {t ? (
-                              <span title={t} style={{fontSize:16, cursor:'help', opacity: correct?1:0.5}}>
-                                {FLAGS[t]||'🏳️'}{correct?'✓':''}
+                              <span title={t} style={{opacity: correct?1:0.5}}>
+                                <Flag team={t} size={16}/>{correct?'✓':''}
                               </span>
                             ) : <span style={{color:'#2a3f55'}}>—</span>}
                           </td>
                         )
                       })}
                       <td style={{padding:'8px', textAlign:'center', fontSize:14}}>
-                        {(p.data?.semifinalists||[]).filter(Boolean).map(t=>FLAGS[t]||'').join('')
-                          || <span style={{color:'#2a3f55'}}>—</span>}
+                        {(p.data?.semifinalists||[]).filter(Boolean).length > 0
+                          ? (p.data?.semifinalists||[]).filter(Boolean).map((t,i) => <Flag key={i} team={t} size={16}/>)
+                          : <span style={{color:'#2a3f55'}}>—</span>}
                       </td>
                       <td style={{padding:'8px 10px', textAlign:'center', fontWeight:700, color:'#f0b429', whiteSpace:'nowrap', fontSize:13}}>
                         {p.data?.winner
-                          ? `${FLAGS[p.data.winner]||''} ${p.data.winner}`
+                          ? <><Flag team={p.data.winner} size={16}/>{p.data.winner}</>
                           : <span style={{color:'#2a3f55'}}>—</span>}
                       </td>
                     </tr>
@@ -655,7 +670,7 @@ export default function App() {
                       borderRadius:8,
                     }}>
                       <span style={{textAlign:'right', fontSize:14, color: filled?'#e2e8f0':'#bcc6d4', fontWeight:filled?600:400}}>
-                        {FLAGS[m.home]||'🏳️'} {m.home}
+                        <Flag team={m.home}/>{m.home}
                       </span>
                       <div style={{display:'flex', alignItems:'center', gap:5}}>
                         <ScoreInput val={score.h} onChange={v=>setResMatchScore(adminGroup,m,'h',v)} locked={false}/>
@@ -663,7 +678,7 @@ export default function App() {
                         <ScoreInput val={score.a} onChange={v=>setResMatchScore(adminGroup,m,'a',v)} locked={false}/>
                       </div>
                       <span style={{textAlign:'left', fontSize:14, color: filled?'#e2e8f0':'#bcc6d4', fontWeight:filled?600:400}}>
-                        {m.away} {FLAGS[m.away]||'🏳️'}
+                        <Flag team={m.away}/>{m.away}
                       </span>
                     </div>
                   )
@@ -682,7 +697,7 @@ export default function App() {
                   <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:13,borderRadius:6,padding:'2px 10px'}}>GR {g}</span>
                   {resultsDraft.groupWinners[g] && (
                     <span style={{...C.green, fontSize:12, fontWeight:600, marginLeft:'auto'}}>
-                      {FLAGS[resultsDraft.groupWinners[g]]||''} {resultsDraft.groupWinners[g]}
+                      <Flag team={resultsDraft.groupWinners[g]} size={16}/>{resultsDraft.groupWinners[g]}
                     </span>
                   )}
                 </div>
@@ -695,7 +710,7 @@ export default function App() {
                       onChange={() => setResGW(g, team)}
                       style={{accentColor:'#4ade80', width:16, height:16}}/>
                     <span style={{color: resultsDraft.groupWinners[g]===team?'#4ade80':'#bcc6d4', fontSize:14}}>
-                      {FLAGS[team]||'🏳️'} {team}
+                      <Flag team={team}/>{team}
                     </span>
                   </label>
                 ))}
@@ -714,7 +729,7 @@ export default function App() {
                   <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Półfinalista #{i+1}</label>
                   <select value={resultsDraft.semifinalists[i]} onChange={e=>setResSF(i,e.target.value)} style={C.sel}>
                     <option value="">— wybierz —</option>
-                    {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
               ))}
@@ -726,7 +741,7 @@ export default function App() {
                   <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Finalista #{i+1}</label>
                   <select value={resultsDraft[k]} onChange={e=>setResKey(k,e.target.value)} style={C.sel}>
                     <option value="">— wybierz —</option>
-                    {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
               ))}
@@ -742,7 +757,7 @@ export default function App() {
               <select value={resultsDraft.winner} onChange={e=>setResKey('winner',e.target.value)}
                 style={{...C.sel, border:'1px solid #3a5020'}}>
                 <option value="">— wybierz —</option>
-                {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
@@ -750,7 +765,7 @@ export default function App() {
               <select value={resultsDraft.topScorerCountry} onChange={e=>setResKey('topScorerCountry',e.target.value)}
                 style={{...C.sel, border:'1px solid #0e3050'}}>
                 <option value="">— wybierz —</option>
-                {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           </div>
@@ -861,7 +876,7 @@ export default function App() {
                         borderRadius:8,
                       }}>
                         <span style={{textAlign:'right',fontSize:14,color:filled?'#e2e8f0':mdLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
-                          {FLAGS[m.home]||'🏳️'} {m.home}
+                          <Flag team={m.home}/>{m.home}
                         </span>
                         <div style={{display:'flex', alignItems:'center', gap:5, flexDirection:'column'}}>
                           <div style={{display:'flex', alignItems:'center', gap:5}}>
@@ -879,7 +894,7 @@ export default function App() {
                           )}
                         </div>
                         <span style={{textAlign:'left',fontSize:14,color:filled?'#e2e8f0':mdLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
-                          {m.away} {FLAGS[m.away]||'🏳️'}
+                          <Flag team={m.away}/>{m.away}
                         </span>
                       </div>
                     )
@@ -908,7 +923,7 @@ export default function App() {
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                     <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:13,borderRadius:6,padding:'2px 10px'}}>GR {g}</span>
                     <LockBadge lockTime={GROUP_LOCK_UTC[g]}/>
-                    {pred.groupWinners[g]&&<span style={{...C.gold,fontSize:12,fontWeight:600,marginLeft:'auto'}}>{FLAGS[pred.groupWinners[g]]||''} {pred.groupWinners[g]}</span>}
+                    {pred.groupWinners[g]&&<span style={{...C.gold,fontSize:12,fontWeight:600,marginLeft:'auto'}}><Flag team={pred.groupWinners[g]} size={16}/>{pred.groupWinners[g]}</span>}
                   </div>
                   {GROUPS[g].map(team => (
                     <label key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:8,
@@ -917,7 +932,7 @@ export default function App() {
                         checked={pred.groupWinners[g]===team} onChange={()=>setGW(g,team)}
                         style={{accentColor:'#d4a017',width:16,height:16}}/>
                       <span style={{color:pred.groupWinners[g]===team?'#f0b429':locked?'#4a5568':'#bcc6d4',fontSize:14}}>
-                        {FLAGS[team]||'🏳️'} {team}
+                        <Flag team={team}/>{team}
                       </span>
                     </label>
                   ))}
@@ -947,7 +962,7 @@ export default function App() {
                   <select disabled={knockoutLocked} value={pred.semifinalists[i]} onChange={e=>setSF(i,e.target.value)}
                     style={{...C.sel,opacity:knockoutLocked?0.5:1}}>
                     <option value="">— wybierz drużynę —</option>
-                    {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
               ))}
@@ -959,7 +974,7 @@ export default function App() {
                   <label style={{...C.muted,fontSize:11,display:'block',marginBottom:4}}>Finalista #{i+1}</label>
                   <select disabled={knockoutLocked} value={pred[k]} onChange={e=>setKey(k,e.target.value)} style={{...C.sel,opacity:knockoutLocked?0.5:1}}>
                     <option value="">— wybierz drużynę —</option>
-                    {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
               ))}
@@ -983,16 +998,16 @@ export default function App() {
               <select disabled={knockoutLocked} value={pred.winner} onChange={e=>setKey('winner',e.target.value)}
                 style={{...C.sel,border:'1px solid #3a5020',fontSize:15,padding:'12px 14px',opacity:knockoutLocked?0.5:1}}>
                 <option value="">— wybierz zwycięzcę —</option>
-                {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
               </select>
-              {pred.winner&&<div style={{marginTop:14,textAlign:'center'}}><div style={{fontSize:52}}>{FLAGS[pred.winner]||'🏆'}</div><div style={{...C.gold,fontWeight:800,fontSize:22,marginTop:6}}>{pred.winner}</div></div>}
+              {pred.winner&&<div style={{marginTop:14,textAlign:'center'}}><div style={{fontSize:52}}><Flag team={pred.winner} size={48}/></div><div style={{...C.gold,fontWeight:800,fontSize:22,marginTop:6}}>{pred.winner}</div></div>}
             </div>
             <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
               <h4 style={{...C.sky,margin:'0 0 12px',fontSize:16}}>⚽ Kraj najlepszego strzelca turnieju</h4>
               <select disabled={knockoutLocked} value={pred.topScorerCountry} onChange={e=>setKey('topScorerCountry',e.target.value)}
                 style={{...C.sel,border:'1px solid #0e3050',fontSize:15,padding:'12px 14px',opacity:knockoutLocked?0.5:1}}>
                 <option value="">— wybierz kraj —</option>
-                {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           </div>
@@ -1027,7 +1042,7 @@ export default function App() {
                   <div key={g} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',background:isGroupLocked(g)?'#1a1010':'#1e2d3d',borderRadius:5}}>
                     <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:10,borderRadius:3,padding:'1px 5px',minWidth:16,textAlign:'center'}}>{g}</span>
                     <span style={{fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      {pred.groupWinners[g]?`${FLAGS[pred.groupWinners[g]]||''} ${pred.groupWinners[g]}`:<span style={{color:isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️':'—'}</span>}
+                      {pred.groupWinners[g]?<><Flag team={pred.groupWinners[g]} size={14}/>{pred.groupWinners[g]}</>:<span style={{color:isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️':'—'}</span>}
                     </span>
                   </div>
                 ))}
@@ -1036,19 +1051,19 @@ export default function App() {
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <div style={C.card()}>
                 <h4 style={{...C.gold,margin:'0 0 8px',fontSize:14}}>⚔️ Półfinaliści</h4>
-                {pred.semifinalists.map((t,i)=><div key={i} style={{color:'#bcc6d4',fontSize:13,marginBottom:3}}>#{i+1} {t?`${FLAGS[t]||''} ${t}`:<span style={{color:'#2a3f55'}}>—</span>}</div>)}
+                {pred.semifinalists.map((t,i)=><div key={i} style={{color:'#bcc6d4',fontSize:13,marginBottom:3}}>#{i+1} {t?<><Flag team={t} size={14}/>{t}</>:<span style={{color:'#2a3f55'}}>—</span>}</div>)}
               </div>
               <div style={C.card()}>
                 <h4 style={{...C.gold,margin:'0 0 8px',fontSize:14}}>🎖️ Finał</h4>
-                <div style={{color:'#bcc6d4',fontSize:13}}>{pred.finalist1?`${FLAGS[pred.finalist1]||''} ${pred.finalist1}`:'—'}<span style={{color:'#2a3f55'}}> vs </span>{pred.finalist2?`${FLAGS[pred.finalist2]||''} ${pred.finalist2}`:'—'}</div>
+                <div style={{color:'#bcc6d4',fontSize:13}}>{pred.finalist1?<><Flag team={pred.finalist1} size={14}/>{pred.finalist1}</>:'—'}<span style={{color:'#2a3f55'}}> vs </span>{pred.finalist2?<><Flag team={pred.finalist2} size={14}/>{pred.finalist2}</>:'—'}</div>
               </div>
               <div style={C.card({border:'1px solid #3a5020',background:'#111c0f'})}>
                 <div style={{...C.muted,fontSize:11}}>🏆 MISTRZ ŚWIATA 2026</div>
-                <div style={{...C.gold,fontSize:18,fontWeight:800,marginTop:4}}>{pred.winner?`${FLAGS[pred.winner]||''} ${pred.winner}`:<span style={{color:'#2a3f55',fontSize:13}}>Nie wybrano</span>}</div>
+                <div style={{...C.gold,fontSize:18,fontWeight:800,marginTop:4}}>{pred.winner?<><Flag team={pred.winner} size={16}/>{pred.winner}</>:<span style={{color:'#2a3f55',fontSize:13}}>Nie wybrano</span>}</div>
               </div>
               <div style={C.card({border:'1px solid #0e3050',background:'#0b1520'})}>
                 <div style={{...C.muted,fontSize:11}}>⚽ KRAJ TOP STRZELCA</div>
-                <div style={{...C.sky,fontSize:16,fontWeight:700,marginTop:4}}>{pred.topScorerCountry?`${FLAGS[pred.topScorerCountry]||''} ${pred.topScorerCountry}`:<span style={{color:'#2a3f55',fontSize:13}}>Nie wybrano</span>}</div>
+                <div style={{...C.sky,fontSize:16,fontWeight:700,marginTop:4}}>{pred.topScorerCountry?<><Flag team={pred.topScorerCountry} size={16}/>{pred.topScorerCountry}</>:<span style={{color:'#2a3f55',fontSize:13}}>Nie wybrano</span>}</div>
               </div>
             </div>
           </div>

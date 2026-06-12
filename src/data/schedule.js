@@ -67,6 +67,21 @@ export const FLAGS = {
   Anglia: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', Chorwacja: '🇭🇷', Ghana: '🇬🇭', Panama: '🇵🇦',
 }
 
+export const FLAG_CODES = {
+  Meksyk: 'mx', RPA: 'za', 'Korea Płd.': 'kr', Czechy: 'cz',
+  Kanada: 'ca', 'Bośnia i Herc.': 'ba', Katar: 'qa', Szwajcaria: 'ch',
+  Brazylia: 'br', Maroko: 'ma', Haiti: 'ht', Szkocja: 'gb-sct',
+  USA: 'us', Paragwaj: 'py', Australia: 'au', Turcja: 'tr',
+  Niemcy: 'de', Curaçao: 'cw', 'Wybrzeże K.Śł.': 'ci', Ekwador: 'ec',
+  Holandia: 'nl', Japonia: 'jp', Szwecja: 'se', Tunezja: 'tn',
+  Belgia: 'be', Egipt: 'eg', Iran: 'ir', 'Nowa Zelandia': 'nz',
+  Hiszpania: 'es', 'Cabo Verde': 'cv', 'Arabia Saud.': 'sa', Urugwaj: 'uy',
+  Francja: 'fr', Senegal: 'sn', 'DR Kongo': 'cd', Norwegia: 'no',
+  Argentyna: 'ar', Algieria: 'dz', Austria: 'at', Jordania: 'jo',
+  Portugalia: 'pt', Irak: 'iq', Uzbekistan: 'uz', Kolumbia: 'co',
+  Anglia: 'gb-eng', Chorwacja: 'hr', Ghana: 'gh', Panama: 'pa',
+}
+
 export const GROUP_LETTERS = Object.keys(GROUPS)
 export const ALL_TEAMS = [...new Set(Object.values(GROUPS).flat())].sort()
 
@@ -88,6 +103,7 @@ export const matchKey = (g, m) => `${g}_${m.home}v${m.away}`
 
 export const SCORING_MATCHES = [
   { label: 'Poprawny wynik meczu (wygrana / remis)', pts: 2 },
+  { label: 'Poprawna wygrana/remis + różnica bramek', pts: 3 },
   { label: 'Dokładny wynik meczu', pts: 4 },
 ]
 
@@ -127,7 +143,10 @@ export function calcScore(pred, results) {
     } else {
       const ar = ah > aa ? 1 : ah < aa ? -1 : 0
       const ur = uh > ua ? 1 : uh < ua ? -1 : 0
-      if (ar === ur) matchPts += 2
+      if (ar === ur) {
+        if ((ah - aa) === (uh - ua)) matchPts += 3
+        else matchPts += 2
+      }
     }
   }
 
