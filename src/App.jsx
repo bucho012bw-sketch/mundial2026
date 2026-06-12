@@ -652,7 +652,7 @@ export default function App() {
                     </td>
                     {scoredPreds.map(p => {
                       const pred = p.data?.matchScores?.[m.key]
-                      const hasPred = pred?.h !== '' && pred?.a !== ''
+                      const hasPred = !!(pred && pred.h !== '' && pred.a !== '')
                       const pts = getMatchPts(p.data, m.key, results.matchScores)
                       return (
                         <td key={p.username} style={{padding:'6px', textAlign:'center', background: pts !== null ? ptsBg(pts) : 'transparent'}}>
