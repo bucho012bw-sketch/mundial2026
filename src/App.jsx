@@ -1008,10 +1008,17 @@ export default function App() {
           </div>
 
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:20}}>
-            {username && !saved && (
-              <button onClick={() => handleSave(false)} disabled={loading}
-                style={{...C.btn('#00c850','#fff'), opacity: loading ? 0.7 : 1, fontWeight:700}}>
-                {loading ? 'Zapisuję...' : '💾 Zapisz zmiany'}
+            {username && (
+              <button onClick={() => handleSave(false)} disabled={loading || saved}
+                style={{
+                  padding:'10px 20px', borderRadius:8, fontWeight:700, fontSize:14,
+                  cursor: (loading || saved) ? 'default' : 'pointer',
+                  border: saved ? '1px solid #2a4d2a' : '1px solid #00c850',
+                  background: saved ? '#0d1f0d' : '#00c850',
+                  color: saved ? '#4ade80' : '#fff',
+                  opacity: loading ? 0.7 : 1,
+                }}>
+                {loading ? 'Zapisuję...' : saved ? '✅ Zapisano' : '💾 Zapisz zmiany'}
               </button>
             )}
             <button onClick={()=>setStep(1)} style={C.btn('#d4a017','#000')}>Dalej → Zwycięzcy grup</button>
