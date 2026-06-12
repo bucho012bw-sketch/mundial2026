@@ -983,9 +983,15 @@ export default function App() {
                           {hasResult && (
                             <span style={{fontSize:11, color:'#6b7a8d'}}>
                               wynik: {actual.h}:{actual.a}
-                              {pts !== null && <span style={{marginLeft:4, color: pts===4?'#4ade80':pts===2?'#f0b429':'#f87171', fontWeight:700}}>
-                                {pts>0?`+${pts}pkt`:'0pkt'}
-                              </span>}
+                              {pts !== null
+                                ? <span style={{marginLeft:6, fontWeight:700, fontSize:12,
+                                    color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429':'#f87171'}}>
+                                    {pts>0?`+${pts} pkt`:'✗ 0 pkt'}
+                                  </span>
+                                : <span style={{marginLeft:6, fontWeight:600, fontSize:11, color:'#4a5568'}}>
+                                    (brak typowania)
+                                  </span>
+                              }
                             </span>
                           )}
                         </div>
