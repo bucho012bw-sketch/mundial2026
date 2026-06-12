@@ -181,12 +181,6 @@ export default function App() {
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    fetchAndSyncResults()
-    const id = setInterval(fetchAndSyncResults, 10 * 60 * 1000)
-    return () => clearInterval(id)
-  }, [fetchAndSyncResults])
-
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
   // ── Supabase ─────────────────────────────────────────────────────────────
@@ -257,6 +251,12 @@ export default function App() {
       console.error('Football API sync error:', e)
     }
   }, [loadResults])
+
+  useEffect(() => {
+    fetchAndSyncResults()
+    const id = setInterval(fetchAndSyncResults, 10 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [fetchAndSyncResults])
 
   useEffect(() => { loadAll(); loadResults() }, [loadAll, loadResults])
 
