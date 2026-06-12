@@ -740,37 +740,45 @@ export default function App() {
     }
 
     // Bonus tab
+    const allMd3Locked = GROUP_LETTERS.every(g => isMatchLocked(g, 3))
+
     const bonusRows = [
       ...GROUP_LETTERS.map(g => ({
         label: `Gr. ${g} — zwycięzca`, pts: 3,
         getVal: d => d?.groupWinners?.[g],
         getActual: () => results.groupWinners?.[g],
         isCorrect: d => results.groupWinners?.[g] && d?.groupWinners?.[g] === results.groupWinners?.[g],
+        isVisible: () => isMatchLocked(g, 3),
       })),
       { label: 'Półfinaliści (×4)', pts: 3,
         getVal: d => (d?.semifinalists||[]).filter(Boolean).join(', ') || null,
         getActual: () => (results.semifinalists||[]).filter(Boolean).join(', ') || null,
         isCorrect: () => null,
+        isVisible: () => allMd3Locked,
       },
       { label: 'Finalista 1', pts: 5,
         getVal: d => d?.finalist1 || null,
         getActual: () => results.finalist1 || null,
         isCorrect: d => results.finalist1 && [d?.finalist1, d?.finalist2].includes(results.finalist1),
+        isVisible: () => allMd3Locked,
       },
       { label: 'Finalista 2', pts: 5,
         getVal: d => d?.finalist2 || null,
         getActual: () => results.finalist2 || null,
         isCorrect: d => results.finalist2 && [d?.finalist1, d?.finalist2].includes(results.finalist2),
+        isVisible: () => allMd3Locked,
       },
       { label: '🏆 Mistrz Świata', pts: 10,
         getVal: d => d?.winner || null,
         getActual: () => results.winner || null,
         isCorrect: d => results.winner && d?.winner === results.winner,
+        isVisible: () => allMd3Locked,
       },
       { label: '⚽ Top strzelec (kraj)', pts: 5,
         getVal: d => d?.topScorerCountry || null,
         getActual: () => results.topScorerCountry || null,
         isCorrect: d => results.topScorerCountry && d?.topScorerCountry === results.topScorerCountry,
+        isVisible: () => allMd3Locked,
       },
     ]
 
@@ -798,6 +806,13 @@ export default function App() {
                   <td style={{padding:'7px 8px', textAlign:'center', color:'#f0b429', fontWeight:700}}>{row.pts}</td>
                   <td style={{padding:'7px 8px', textAlign:'center', color:'#4ade80', fontWeight:600}}>{actual || '—'}</td>
                   {scoredPreds.map(p => {
+                    const isMe = p.username === username
+                    const visible = isMe || row.isVisible()
+                    if (!visible) return (
+                      <td key={p.username} style={{padding:'6px', textAlign:'center'}}>
+                        <span style={{color:'#2a3f55', fontSize:12}}>🔒</span>
+                      </td>
+                    )
                     const val = row.getVal(p.data)
                     const correct = row.isCorrect(p.data)
                     return (
