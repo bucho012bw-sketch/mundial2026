@@ -13,7 +13,7 @@
 // H: Jun 15 17:00 – Spain vs Cape Verde
 // I: Jun 16 19:00 – France vs Senegal
 // J: Jun 17 01:00 – Argentina vs Algeria
-// K: Jun 17 17:00 – Portugal vs DR Congo
+// K: Jun 17 17:00 – Portugal vs DR Congo  [fix: DR Congo in K, Iraq in I]
 // L: Jun 17 20:00 – England vs Croatia
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -46,9 +46,9 @@ export const GROUPS = {
   F: ['Holandia', 'Japonia', 'Szwecja', 'Tunezja'],
   G: ['Belgia', 'Egipt', 'Iran', 'Nowa Zelandia'],
   H: ['Hiszpania', 'Cabo Verde', 'Arabia Saud.', 'Urugwaj'],
-  I: ['Francja', 'Senegal', 'DR Kongo', 'Norwegia'],
+  I: ['Francja', 'Senegal', 'Irak', 'Norwegia'],
   J: ['Argentyna', 'Algieria', 'Austria', 'Jordania'],
-  K: ['Portugalia', 'Irak', 'Uzbekistan', 'Kolumbia'],
+  K: ['Portugalia', 'DR Kongo', 'Uzbekistan', 'Kolumbia'],
   L: ['Anglia', 'Chorwacja', 'Ghana', 'Panama'],
 }
 

@@ -602,9 +602,15 @@ export default function App() {
   if (view === 'leaderboard') {
     const TABS = [
       { id:'summary',  label:'📊 Tabela' },
-      { id:'md1',      label:'Kolejka 1' },
-      { id:'md2',      label:'Kolejka 2' },
-      { id:'md3',      label:'Kolejka 3' },
+      { id:'md1',      label:'1. kolejka' },
+      { id:'md2',      label:'2. kolejka' },
+      { id:'md3',      label:'3. kolejka' },
+      { id:'r32',      label:'1/16' },
+      { id:'r16',      label:'1/8' },
+      { id:'qf',       label:'Ćwierćfinał' },
+      { id:'sf',       label:'Półfinał' },
+      { id:'third',    label:'3. miejsce' },
+      { id:'final',    label:'Finał' },
       { id:'bonus',    label:'🏆 Bonus' },
     ]
     const ptsColor = pts => pts===4?'#4ade80':pts===3?'#67d7f5':pts===2?'#f0b429':pts===0?'#f87171':'#6b7a8d'
@@ -880,10 +886,24 @@ export default function App() {
             </div>
           )}
 
-          {/* ── KOLEJKI ──────────────────────────────────────── */}
+          {/* ── KOLEJKI GRUPOWE ─────────────────────────────── */}
           {rankTab === 'md1' && <MdTab md={1}/>}
           {rankTab === 'md2' && <MdTab md={2}/>}
           {rankTab === 'md3' && <MdTab md={3}/>}
+
+          {/* ── FAZY PUCHAROWE ───────────────────────────────── */}
+          {['r32','r16','qf','sf','third','final'].includes(rankTab) && (() => {
+            const labels = { r32:'1/16 finału', r16:'1/8 finału', qf:'Ćwierćfinały', sf:'Półfinały', third:'Mecz o 3. miejsce', final:'Finał' }
+            const dates  = { r32:'28 cze – 4 lip', r16:'4–7 lip', qf:'9–12 lip', sf:'14–15 lip', third:'18 lip', final:'19 lip 2026' }
+            return (
+              <div style={{...C.card({border:'1px solid #1e2d3d'}), textAlign:'center', padding:'40px 20px'}}>
+                <div style={{fontSize:36, marginBottom:12}}>⚽</div>
+                <div style={{...C.gold, fontWeight:800, fontSize:18, marginBottom:6}}>{labels[rankTab]}</div>
+                <div style={{...C.muted, fontSize:13, marginBottom:16}}>{dates[rankTab]}</div>
+                <div style={{color:'#4a5568', fontSize:13}}>Typowanie meczów tej fazy pojawi się gdy znane będą pary</div>
+              </div>
+            )
+          })()}
 
           {/* ── BONUS ────────────────────────────────────────── */}
           {rankTab === 'bonus' && <BonusTab/>}
