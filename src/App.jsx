@@ -142,6 +142,39 @@ function Flag({ team, size = 20 }) {
   )
 }
 
+// ─── TOOLTIP ─────────────────────────────────────────────────────────────────
+function Tip({ text, children }) {
+  return (
+    <span style={{position:'relative', display:'inline-block'}}
+      onMouseEnter={e => {
+        const tip = e.currentTarget.querySelector('[data-tip]')
+        if (tip) tip.style.opacity = '1'
+      }}
+      onMouseLeave={e => {
+        const tip = e.currentTarget.querySelector('[data-tip]')
+        if (tip) tip.style.opacity = '0'
+      }}>
+      {children}
+      <span data-tip style={{
+        position:'absolute', bottom:'calc(100% + 6px)', left:'50%',
+        transform:'translateX(-50%)',
+        background:'#1a2535', color:'#e2e8f0', fontSize:11, fontWeight:500,
+        padding:'5px 10px', borderRadius:6, whiteSpace:'nowrap',
+        border:'1px solid #2a3f55', pointerEvents:'none',
+        opacity:0, transition:'opacity 0.15s', zIndex:999,
+      }}>
+        {text}
+        <span style={{
+          position:'absolute', top:'100%', left:'50%', transform:'translateX(-50%)',
+          width:0, height:0,
+          borderLeft:'5px solid transparent', borderRight:'5px solid transparent',
+          borderTop:'5px solid #2a3f55',
+        }}/>
+      </span>
+    </span>
+  )
+}
+
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
   return (
@@ -155,19 +188,29 @@ function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
           </p>
         )}
       </div>
-      <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+      <div style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center'}}>
         {username && view !== 'predict' && (
-          <button onClick={() => setView('predict')} style={C.btn('#d4a017','#000')}>✏️ Typowanie</button>
+          <Tip text="Moje typowanie">
+            <button onClick={() => setView('predict')} style={C.btn('#d4a017','#000')}>✏️ Typowanie</button>
+          </Tip>
         )}
         {view !== 'leaderboard' && (
-          <button onClick={() => setView('leaderboard')} style={C.btn('#1e2d3d','#ccc')}>📊 Ranking</button>
+          <Tip text="Ranking uczestników">
+            <button onClick={() => setView('leaderboard')} style={C.btn('#1e2d3d','#ccc')}>📊 Ranking</button>
+          </Tip>
         )}
         {view !== 'rules' && (
-          <button onClick={() => setView('rules')} style={C.btn('#1e2d3d','#6b7a8d')}>ℹ️</button>
+          <Tip text="Zasady i punktacja">
+            <button onClick={() => setView('rules')} style={C.btn('#1e2d3d','#6b7a8d')}>ℹ️</button>
+          </Tip>
         )}
-        <button onClick={onAdminClick} title="Panel wyników (admin)"
-          style={C.btn(view==='admin'?'#d4a017':'#1e2d3d', view==='admin'?'#000':'#6b7a8d')}>⚙️</button>
-        <button onClick={onLogout} style={C.btn('#1e2d3d','#6b7a8d')}>🚪</button>
+        <Tip text="Panel wyników (admin)">
+          <button onClick={onAdminClick}
+            style={C.btn(view==='admin'?'#d4a017':'#1e2d3d', view==='admin'?'#000':'#6b7a8d')}>⚙️</button>
+        </Tip>
+        <Tip text="Wyloguj się">
+          <button onClick={onLogout} style={C.btn('#1e2d3d','#6b7a8d')}>🚪</button>
+        </Tip>
       </div>
     </div>
   )
