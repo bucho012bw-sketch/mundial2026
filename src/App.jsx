@@ -694,9 +694,17 @@ export default function App() {
                       {hasResult ? `${actual.h}:${actual.a}` : '—'}
                     </td>
                     {scoredPreds.map(p => {
+                      const locked = isMatchLocked(m.group, m.matchday)
+                      const isMe = p.username === username
+                      const visible = locked || isMe
                       const pred = p.data?.matchScores?.[m.key]
                       const hasPred = !!(pred && pred.h !== '' && pred.a !== '')
                       const pts = getMatchPts(p.data, m.key, results.matchScores)
+                      if (!visible) return (
+                        <td key={p.username} style={{padding:'6px', textAlign:'center'}}>
+                          <span style={{color:'#2a3f55', fontSize:12}}>🔒</span>
+                        </td>
+                      )
                       return (
                         <td key={p.username} style={{padding:'6px', textAlign:'center', background: pts !== null ? ptsBg(pts) : 'transparent'}}>
                           {hasPred
