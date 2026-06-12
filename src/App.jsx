@@ -263,6 +263,7 @@ export default function App() {
   const [, tick] = useState(0)
   const [rankTab, setRankTab] = useState('summary')
   const [lastSync, setLastSync] = useState(null)
+  const [debugInfo, setDebugInfo] = useState(null)
 
   useEffect(() => {
     const id = setInterval(() => tick(n => n+1), 60_000)
@@ -1193,10 +1194,52 @@ export default function App() {
             style={{...C.btn('#1e2d3d','#67d7f5'), fontSize:12, padding:'6px 14px', marginLeft:'auto', opacity: loading?0.6:1}}>
             🔄 Odśwież z API
           </button>
+          <button onClick={async () => {
+            setDebugInfo('loading')
+            const r = await fetch('/api/football-debug')
+            const d = await r.json()
+            setDebugInfo(d)
+          }} style={{...C.btn('#1e2d3d','#f0b429'), fontSize:12, padding:'6px 14px'}}>
+            🔍 Debug API
+          </button>
           {lastSync && (
             <span style={{fontSize:11, color:'#4a5568'}}>sync: {formatTimeAgo(lastSync)}</span>
           )}
         </div>
+
+        {/* Debug info panel */}
+        {debugInfo && debugInfo !== 'loading' && (
+          <div style={{background:'#0a1520', border:'1px solid #2a3f55', borderRadius:8, padding:'14px 16px', marginBottom:16, fontSize:12}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
+              <span style={{color:'#f0b429', fontWeight:700}}>🔍 Diagnostyka API football-data.org</span>
+              <button onClick={() => setDebugInfo(null)} style={{...C.btn('#1e2d3d','#6b7a8d'), fontSize:11, padding:'2px 8px'}}>✕</button>
+            </div>
+            {debugInfo.apiError
+              ? <div style={{color:'#f87171', fontWeight:700}}>❌ Błąd API: {debugInfo.apiError}</div>
+              : <>
+                  <div style={{color:'#4ade80'}}>✅ HTTP {debugInfo.httpStatus} · Turniej: {debugInfo.competitionName || '?'}</div>
+                  <div style={{color:'#e2e8f0', marginTop:4}}>Mecze z API: <strong>{debugInfo.totalMatches}</strong> · z wynikami: <strong style={{color: debugInfo.matchesWithScore>0?'#4ade80':'#f87171'}}>{debugInfo.matchesWithScore}</strong></div>
+                  {debugInfo.matchesWithScore > 0 && (
+                    <div style={{marginTop:8}}>
+                      <div style={{color:'#6b7a8d', marginBottom:4}}>Przykładowe wyniki z API:</div>
+                      {debugInfo.sample.map((s,i) => (
+                        <div key={i} style={{color:'#bcc6d4'}}>{s.home} {s.score?.home}:{s.score?.away} {s.away} <span style={{color:'#4a5568'}}>({s.status})</span></div>
+                      ))}
+                    </div>
+                  )}
+                  {debugInfo.unmappedNames?.length > 0 && (
+                    <div style={{marginTop:8}}>
+                      <div style={{color:'#6b7a8d', marginBottom:2}}>Nazwy drużyn w API (sprawdź mapowanie):</div>
+                      <div style={{color:'#4a5568', fontSize:11}}>{debugInfo.unmappedNames.join(', ')}</div>
+                    </div>
+                  )}
+                </>
+            }
+          </div>
+        )}
+        {debugInfo === 'loading' && (
+          <div style={{...C.muted, fontSize:12, marginBottom:12}}>⏳ Sprawdzam API...</div>
+        )}
 
         {/* Admin tabs */}
         <div style={{display:'flex', gap:4, marginBottom:20}}>
