@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import {
-  GROUPS, FLAGS, GROUP_LETTERS, ALL_TEAMS, SCORING, EMPTY_PRED,
-  MATCHES, matchKey,
+  GROUPS, FLAGS, GROUP_LETTERS, ALL_TEAMS,
+  SCORING_MATCHES, SCORING_BONUS,
+  EMPTY_PRED, EMPTY_RESULTS, MATCHES, matchKey,
   GROUP_LOCK_UTC, KNOCKOUT_LOCK_UTC,
   isGroupLocked, isKnockoutLocked, isMatchLocked, getMatchLock, formatLockTime,
+  calcScore,
 } from './data/schedule'
+
+const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '1234'
 
 // ─── CSS helpers ──────────────────────────────────────────────────────────────
 const C = {
@@ -29,35 +33,6 @@ const C = {
          border:'1px solid #2a3f55', borderRadius:8, fontSize:14, cursor:'pointer' },
   inp: { width:'100%', padding:'13px 16px', background:'#161d27', color:'#e2e8f0',
          border:'2px solid #2a3f55', borderRadius:10, fontSize:16, boxSizing:'border-box', outline:'none' },
-}
-
-// ─── NAV ──────────────────────────────────────────────────────────────────────
-function NavBar({ username, view, setView, onLogout, saved }) {
-  return (
-    <div style={C.header}>
-      <div>
-        <h2 style={{...C.gold, margin:0, fontSize:17}}>⚽ Mundial 2026 · Typer</h2>
-        {username && (
-          <p style={{...C.muted, margin:0, fontSize:11}}>
-            Cześć, <strong style={{color:'#d4a017'}}>{username}</strong>
-            {saved ? ' · ✅ Zapisano' : ''}
-          </p>
-        )}
-      </div>
-      <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
-        {username && view !== 'predict' && (
-          <button onClick={() => setView('predict')} style={C.btn('#d4a017','#000')}>✏️ Typowanie</button>
-        )}
-        {view !== 'leaderboard' && (
-          <button onClick={() => setView('leaderboard')} style={C.btn('#1e2d3d','#ccc')}>📊 Ranking</button>
-        )}
-        {view !== 'rules' && (
-          <button onClick={() => setView('rules')} style={C.btn('#1e2d3d','#6b7a8d')}>ℹ️</button>
-        )}
-        <button onClick={onLogout} style={C.btn('#1e2d3d','#6b7a8d')}>🚪</button>
-      </div>
-    </div>
-  )
 }
 
 function Toast({ msg }) {
@@ -85,23 +60,55 @@ function LockBadge({ lockTime }) {
   )
 }
 
-const scoreInput = (val, onChange, locked) => ({
-  type:'number', min:0, max:20,
-  disabled: locked,
-  value: val,
-  onChange,
-  style: {
-    width:48, textAlign:'center', padding:'8px 2px',
-    background: locked ? '#0f1520' : '#1e2d3d',
-    color: locked ? '#4a5568' : '#e2e8f0',
-    border:`1.5px solid ${val !== '' ? '#d4a017' : '#2a3f55'}`,
-    borderRadius:8, fontSize:18, fontWeight:700,
-    outline:'none', cursor: locked ? 'not-allowed' : 'auto',
-  },
-})
+function ScoreInput({ val, onChange, locked }) {
+  return (
+    <input
+      type="text" inputMode="numeric" maxLength={2}
+      disabled={locked}
+      value={val}
+      onChange={e => onChange(e.target.value.replace(/\D/g,''))}
+      style={{
+        width:48, textAlign:'center', padding:'8px 2px',
+        background: locked ? '#0f1520' : '#1e2d3d',
+        color: locked ? '#4a5568' : '#e2e8f0',
+        border:`1.5px solid ${val !== '' ? '#d4a017' : '#2a3f55'}`,
+        borderRadius:8, fontSize:18, fontWeight:700, outline:'none',
+        cursor: locked ? 'not-allowed' : 'auto',
+      }}
+    />
+  )
+}
 
-const countMatchFilled = (matchScores) =>
-  Object.values(matchScores || {}).filter(s => s.h !== '' && s.a !== '').length
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
+  return (
+    <div style={C.header}>
+      <div>
+        <h2 style={{...C.gold, margin:0, fontSize:17}}>⚽ Mundial 2026 · Typer</h2>
+        {username && (
+          <p style={{...C.muted, margin:0, fontSize:11}}>
+            Cześć, <strong style={{color:'#d4a017'}}>{username}</strong>
+            {saved ? ' · ✅ Zapisano' : ''}
+          </p>
+        )}
+      </div>
+      <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+        {username && view !== 'predict' && (
+          <button onClick={() => setView('predict')} style={C.btn('#d4a017','#000')}>✏️ Typowanie</button>
+        )}
+        {view !== 'leaderboard' && (
+          <button onClick={() => setView('leaderboard')} style={C.btn('#1e2d3d','#ccc')}>📊 Ranking</button>
+        )}
+        {view !== 'rules' && (
+          <button onClick={() => setView('rules')} style={C.btn('#1e2d3d','#6b7a8d')}>ℹ️</button>
+        )}
+        <button onClick={onAdminClick} title="Panel wyników (admin)"
+          style={C.btn(view==='admin'?'#d4a017':'#1e2d3d', view==='admin'?'#000':'#6b7a8d')}>⚙️</button>
+        <button onClick={onLogout} style={C.btn('#1e2d3d','#6b7a8d')}>🚪</button>
+      </div>
+    </div>
+  )
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN APP
@@ -110,12 +117,19 @@ export default function App() {
   const [view, setView]       = useState('login')
   const [username, setUser]   = useState('')
   const [nameInput, setName]  = useState('')
-  const [pinInput, setPinInput] = useState('')
-  const [userPin, setUserPin]   = useState('')
-  const [loginErr, setLoginErr] = useState('')
+  const [pinInput, setPinInput]   = useState('')
+  const [userPin, setUserPin]     = useState('')
+  const [loginErr, setLoginErr]   = useState('')
   const [step, setStep]       = useState(0)
   const [pred, setPred]       = useState(EMPTY_PRED)
   const [allPreds, setAll]    = useState([])
+  const [results, setResults] = useState(EMPTY_RESULTS)
+  const [resultsDraft, setResultsDraft] = useState(EMPTY_RESULTS)
+  const [adminStep, setAdminStep] = useState(0)
+  const [adminGroup, setAdminGroup] = useState(GROUP_LETTERS[0])
+  const [showAdminModal, setShowAdminModal] = useState(false)
+  const [adminPinInput, setAdminPinInput]   = useState('')
+  const [adminErr, setAdminErr] = useState('')
   const [loading, setLoading] = useState(false)
   const [saved, setSaved]     = useState(false)
   const [toast, setToast]     = useState('')
@@ -131,72 +145,98 @@ export default function App() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
+  // ── Supabase ─────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     const { data, error } = await supabase
-      .from('predictions')
-      .select('*')
-      .order('updated_at', { ascending: false })
+      .from('predictions').select('*').order('updated_at', { ascending: false })
     if (!error && data) setAll(data)
   }, [])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  const loadResults = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('results').select('*').eq('id', 'current').maybeSingle()
+    if (!error && data?.data) {
+      const r = {
+        ...EMPTY_RESULTS,
+        ...data.data,
+        matchScores:   { ...EMPTY_RESULTS.matchScores,   ...(data.data.matchScores  || {}) },
+        groupWinners:  { ...EMPTY_RESULTS.groupWinners,  ...(data.data.groupWinners || {}) },
+        semifinalists: data.data.semifinalists || ['','','',''],
+      }
+      setResults(r)
+      setResultsDraft(r)
+    }
+  }, [])
+
+  useEffect(() => { loadAll(); loadResults() }, [loadAll, loadResults])
 
   useEffect(() => {
-    const ch = supabase
-      .channel('pred-changes')
+    const ch = supabase.channel('pred-ch')
       .on('postgres_changes', { event:'*', schema:'public', table:'predictions' }, loadAll)
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [loadAll])
 
+  useEffect(() => {
+    const ch = supabase.channel('results-ch')
+      .on('postgres_changes', { event:'*', schema:'public', table:'results' }, loadResults)
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [loadResults])
+
+  // ── Login / save ─────────────────────────────────────────────────────────
   const handleLogin = async () => {
     const name = nameInput.trim()
     const pin  = pinInput.trim()
     setLoginErr('')
     if (!name) return
     if (!/^\d{4}$/.test(pin)) { setLoginErr('PIN musi mieć dokładnie 4 cyfry.'); return }
-
     setLoading(true)
     const { data } = await supabase
       .from('predictions').select('*').eq('username', name).maybeSingle()
     setLoading(false)
-
     if (data?.data) {
       const storedPin = data.data.pin
-      if (storedPin && storedPin !== pin) {
-        setLoginErr('Nieprawidłowy PIN. Spróbuj ponownie.')
-        return
-      }
+      if (storedPin && storedPin !== pin) { setLoginErr('Nieprawidłowy PIN. Spróbuj ponownie.'); return }
       setPred({
-        ...EMPTY_PRED,
-        ...data.data,
+        ...EMPTY_PRED, ...data.data,
         groupWinners: { ...EMPTY_PRED.groupWinners, ...(data.data.groupWinners || {}) },
         matchScores:  { ...EMPTY_PRED.matchScores,  ...(data.data.matchScores  || {}) },
       })
       setSaved(true)
     } else {
-      setPred(EMPTY_PRED)
-      setSaved(false)
+      setPred(EMPTY_PRED); setSaved(false)
     }
-    setUserPin(pin)
-    setUser(name)
-    setStep(0)
-    setView('predict')
+    setUserPin(pin); setUser(name); setStep(0); setView('predict')
   }
 
   const handleSave = async () => {
     setLoading(true)
-    const { error } = await supabase
-      .from('predictions')
-      .upsert({ username, data: { ...pred, pin: userPin }, updated_at: new Date().toISOString() }, { onConflict:'username' })
+    const { error } = await supabase.from('predictions').upsert(
+      { username, data: { ...pred, pin: userPin }, updated_at: new Date().toISOString() },
+      { onConflict:'username' }
+    )
     if (!error) {
-      setSaved(true)
-      showToast('✅ Typowanie zapisane!')
+      setSaved(true); showToast('✅ Typowanie zapisane!')
       await loadAll()
       setTimeout(() => setView('leaderboard'), 800)
     } else {
-      showToast('❌ Błąd zapisu – spróbuj ponownie.')
-      console.error(error)
+      showToast('❌ Błąd zapisu – spróbuj ponownie.'); console.error(error)
+    }
+    setLoading(false)
+  }
+
+  const handleSaveResults = async () => {
+    setLoading(true)
+    const { error } = await supabase.from('results').upsert(
+      { id: 'current', data: resultsDraft, updated_at: new Date().toISOString() },
+      { onConflict:'id' }
+    )
+    if (!error) {
+      showToast('✅ Wyniki zapisane!')
+      await loadResults()
+    } else {
+      showToast('❌ Błąd zapisu wyników.'); console.error(error)
     }
     setLoading(false)
   }
@@ -206,26 +246,85 @@ export default function App() {
     setSaved(false); setPred(EMPTY_PRED); setLoginErr('')
   }
 
-  // ── Mutators ──────────────────────────────────────────────────────────────
-  const setGW  = (g, t)   => { if (!isGroupLocked(g)) setPred(p => ({ ...p, groupWinners: {...p.groupWinners, [g]:t} })) }
+  // ── Admin unlock ──────────────────────────────────────────────────────────
+  const handleAdminClick = () => {
+    if (view === 'admin') { setView(username ? 'predict' : 'leaderboard'); return }
+    setAdminPinInput(''); setAdminErr(''); setShowAdminModal(true)
+  }
+  const handleAdminPin = () => {
+    if (adminPinInput === ADMIN_PIN) {
+      setShowAdminModal(false); setAdminStep(0); setView('admin')
+    } else {
+      setAdminErr('Nieprawidłowy PIN admina.')
+    }
+  }
+
+  // ── Prediction mutators ───────────────────────────────────────────────────
+  const setGW  = (g, t)   => { if (!isGroupLocked(g)) setPred(p => ({ ...p, groupWinners: {...p.groupWinners,[g]:t} })) }
   const setSF  = (i, t)   => { if (!isKnockoutLocked()) { const sf=[...pred.semifinalists]; sf[i]=t; setPred(p=>({...p,semifinalists:sf})) } }
   const setKey = (k, v)   => { if (!isKnockoutLocked()) setPred(p => ({...p,[k]:v})) }
   const setMatchScore = (g, m, side, val) => {
     if (isMatchLocked(g, m.matchday)) return
     const key = matchKey(g, m)
-    const num = val === '' ? '' : String(Math.max(0, parseInt(val) || 0))
-    setPred(p => ({
-      ...p,
-      matchScores: { ...p.matchScores, [key]: { ...(p.matchScores?.[key] || {h:'',a:''}), [side]: num } },
-    }))
+    const num = val.replace(/\D/g,'')
+    setPred(p => ({ ...p, matchScores: { ...p.matchScores, [key]: { ...(p.matchScores?.[key]||{h:'',a:''}), [side]: num } } }))
   }
 
+  // ── Results mutators (admin) ───────────────────────────────────────────────
+  const setResMatchScore = (g, m, side, val) => {
+    const key = matchKey(g, m)
+    const num = val.replace(/\D/g,'')
+    setResultsDraft(r => ({ ...r, matchScores: { ...r.matchScores, [key]: { ...(r.matchScores?.[key]||{h:'',a:''}), [side]: num } } }))
+  }
+  const setResGW  = (g, t)   => setResultsDraft(r => ({ ...r, groupWinners: {...r.groupWinners, [g]:t} }))
+  const setResSF  = (i, t)   => { const sf=[...resultsDraft.semifinalists]; sf[i]=t; setResultsDraft(r=>({...r,semifinalists:sf})) }
+  const setResKey = (k, v)   => setResultsDraft(r => ({...r, [k]:v}))
+
   // ── Derived ───────────────────────────────────────────────────────────────
-  const matchFilled       = countMatchFilled(pred.matchScores)
-  const doneCount         = GROUP_LETTERS.filter(g => pred.groupWinners[g]).length
+  const matchFilled       = Object.values(pred.matchScores||{}).filter(s=>s.h!==''&&s.a!=='').length
+  const doneCount         = GROUP_LETTERS.filter(g=>pred.groupWinners[g]).length
   const semifinalistsDone = pred.semifinalists.every(Boolean) && pred.finalist1 && pred.finalist2
   const championDone      = !!(pred.winner && pred.topScorerCountry)
   const knockoutLocked    = isKnockoutLocked()
+
+  const resultsEntered = Object.values(results.matchScores||{}).filter(s=>s.h!==''&&s.a!=='').length
+
+  const scoredPreds = allPreds
+    .map(p => ({ ...p, score: calcScore(p.data || {}, results) }))
+    .sort((a,b) => b.score.total - a.score.total)
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADMIN PIN MODAL
+  // ═══════════════════════════════════════════════════════════════════════════
+  const AdminModal = showAdminModal && (
+    <div style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,0.8)',
+      display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000,
+    }}>
+      <div style={{background:'#0f1923', border:'2px solid #d4a017', borderRadius:16,
+                   padding:'32px 28px', maxWidth:340, width:'90%', textAlign:'center'}}>
+        <div style={{fontSize:36, marginBottom:8}}>⚙️</div>
+        <h3 style={{...C.gold, margin:'0 0 6px'}}>Panel Wyników</h3>
+        <p style={{...C.muted, fontSize:13, margin:'0 0 20px'}}>Wpisz PIN admina</p>
+        <input
+          style={{...C.inp, textAlign:'center', letterSpacing:10, fontSize:22}}
+          type="text" inputMode="numeric" maxLength={4}
+          value={adminPinInput}
+          onChange={e => { setAdminPinInput(e.target.value.replace(/\D/g,'')); setAdminErr('') }}
+          onKeyDown={e => e.key==='Enter' && handleAdminPin()}
+          autoFocus
+          placeholder="• • • •"
+        />
+        {adminErr && <p style={{...C.red, fontSize:13, margin:'8px 0 0'}}>{adminErr}</p>}
+        <div style={{display:'flex', gap:10, marginTop:16}}>
+          <button onClick={() => setShowAdminModal(false)}
+            style={{...C.btn('#1e2d3d','#ccc'), flex:1}}>Anuluj</button>
+          <button onClick={handleAdminPin}
+            style={{...C.btn('#d4a017','#000'), flex:1}}>Wejdź</button>
+        </div>
+      </div>
+    </div>
+  )
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LOGIN
@@ -236,6 +335,7 @@ export default function App() {
     <div style={{...C.page, display:'flex', alignItems:'center', justifyContent:'center',
                  background:'radial-gradient(ellipse at 50% 0%,#0f4015 0%,#0b0f13 70%)'}}>
       {toast && <Toast msg={toast}/>}
+      {AdminModal}
       <div style={{background:'#0f1923', border:'2px solid #d4a017', borderRadius:20,
                    padding:'40px 36px', maxWidth:420, width:'90%', textAlign:'center',
                    boxShadow:'0 24px 80px rgba(0,0,0,0.8)'}}>
@@ -244,61 +344,44 @@ export default function App() {
         <p style={{...C.muted, margin:'0 0 4px', fontSize:13}}>🇺🇸 USA · 🇨🇦 Kanada · 🇲🇽 Meksyk</p>
         <p style={{...C.muted, margin:'0 0 20px', fontSize:12}}>11 czerwca – 19 lipca 2026 · 48 drużyn · 104 mecze</p>
 
-        {/* Instrukcja */}
-        <div style={{
-          background:'#1a2535', border:'1px solid #2a3f55', borderRadius:10,
-          padding:'12px 16px', marginBottom:20, textAlign:'left',
-        }}>
-          <p style={{margin:'0 0 6px', fontSize:13, color:'#e2e8f0', fontWeight:600}}>
-            👋 Jak dołączyć?
-          </p>
+        <div style={{background:'#1a2535', border:'1px solid #2a3f55', borderRadius:10,
+                     padding:'12px 16px', marginBottom:20, textAlign:'left'}}>
+          <p style={{margin:'0 0 6px', fontSize:13, color:'#e2e8f0', fontWeight:600}}>👋 Jak dołączyć?</p>
           <ul style={{...C.muted, margin:0, paddingLeft:18, fontSize:12, lineHeight:1.8}}>
-            <li>Wpisz swój <strong style={{color:'#e2e8f0'}}>nick</strong> (dowolna nazwa)</li>
+            <li>Wpisz swój <strong style={{color:'#e2e8f0'}}>nick</strong></li>
             <li>Wymyśl <strong style={{color:'#e2e8f0'}}>4-cyfrowy PIN</strong> — zapamiętaj go!</li>
-            <li>Pierwsze wejście <strong style={{color:'#4ade80'}}>tworzy konto</strong> z tym PINem</li>
+            <li>Pierwsze wejście <strong style={{color:'#4ade80'}}>tworzy konto</strong></li>
             <li>Kolejne wejścia wymagają <strong style={{color:'#e2e8f0'}}>tego samego PINu</strong></li>
           </ul>
         </div>
 
         <div style={{textAlign:'left', marginBottom:10}}>
           <label style={{...C.muted, fontSize:12, display:'block', marginBottom:5}}>Nick / imię</label>
-          <input
-            style={C.inp}
-            value={nameInput}
+          <input style={C.inp} value={nameInput}
             onChange={e => { setName(e.target.value); setLoginErr('') }}
-            onKeyDown={e => e.key === 'Enter' && loginReady && !loading && handleLogin()}
-            placeholder="np. Marek, KrólStrzelców..."
-            autoFocus
-          />
+            onKeyDown={e => e.key==='Enter' && loginReady && !loading && handleLogin()}
+            placeholder="np. Marek, KrólStrzelców..." autoFocus />
         </div>
 
         <div style={{textAlign:'left', marginBottom: loginErr ? 8 : 20}}>
           <label style={{...C.muted, fontSize:12, display:'block', marginBottom:5}}>PIN (4 cyfry)</label>
-          <input
-            style={{...C.inp, letterSpacing:12, fontSize:22, textAlign:'center'}}
-            type="text"
-            inputMode="numeric"
-            maxLength={4}
+          <input style={{...C.inp, letterSpacing:12, fontSize:22, textAlign:'center'}}
+            type="text" inputMode="numeric" maxLength={4}
             value={pinInput}
             onChange={e => { setPinInput(e.target.value.replace(/\D/g,'')); setLoginErr('') }}
-            onKeyDown={e => e.key === 'Enter' && loginReady && !loading && handleLogin()}
-            placeholder="1234"
-          />
+            onKeyDown={e => e.key==='Enter' && loginReady && !loading && handleLogin()}
+            placeholder="1234" />
         </div>
 
         {loginErr && (
-          <div style={{
-            background:'#2a1010', border:'1px solid #5a2020', borderRadius:8,
-            padding:'10px 14px', marginBottom:14, fontSize:13, color:'#f87171', textAlign:'left',
-          }}>
+          <div style={{background:'#2a1010', border:'1px solid #5a2020', borderRadius:8,
+                       padding:'10px 14px', marginBottom:14, fontSize:13, color:'#f87171', textAlign:'left'}}>
             ❌ {loginErr}
           </div>
         )}
 
-        <button
-          onClick={handleLogin}
-          disabled={!loginReady || loading}
-          style={{...C.btn('#d4a017','#000', loginReady && !loading ? 1 : 0.4),
+        <button onClick={handleLogin} disabled={!loginReady || loading}
+          style={{...C.btn('#d4a017','#000', loginReady&&!loading?1:0.4),
                   width:'100%', fontSize:16, padding:'14px'}}>
           {loading ? 'Sprawdzam...' : 'Wejdź i typuj! →'}
         </button>
@@ -311,9 +394,7 @@ export default function App() {
               Podgląd rankingu →
             </button>
             <button onClick={() => setView('rules')}
-              style={{...C.btn('transparent','#6b7a8d'), padding:'4px 0', fontSize:13}}>
-              Punktacja
-            </button>
+              style={{...C.btn('transparent','#6b7a8d'), padding:'4px 0', fontSize:13}}>Punktacja</button>
           </div>
         </div>
       </div>
@@ -325,47 +406,53 @@ export default function App() {
   // ═══════════════════════════════════════════════════════════════════════════
   if (view === 'rules') return (
     <div style={C.page}>
-      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved}/>
+      {AdminModal}
+      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
       <div style={{maxWidth:560, margin:'40px auto', padding:'0 20px'}}>
-        <h2 style={{...C.gold, marginBottom:8}}>📋 Zasady punktacji</h2>
-        <p style={{...C.muted, fontSize:13, marginBottom:24}}>Punkty naliczane po zakończeniu turnieju (19 lipca 2026)</p>
-        <div style={C.card({marginBottom:20})}>
-          {SCORING.map(({label,pts}) => (
+        <h2 style={{...C.gold, marginBottom:20}}>📋 Zasady punktacji</h2>
+
+        <div style={C.card({marginBottom:16})}>
+          <h4 style={{...C.sky, margin:'0 0 12px'}}>⚽ Typowanie wyników meczów</h4>
+          {SCORING_MATCHES.map(({label,pts}) => (
             <div key={label} style={{display:'flex', justifyContent:'space-between', alignItems:'center',
-                                     padding:'12px 0', borderBottom:'1px solid #1e2d3d'}}>
-              <span style={{fontSize:15}}>{label}</span>
-              <span style={{...C.gold, fontWeight:800, fontSize:18}}>{pts} pkt</span>
+                                     padding:'10px 0', borderBottom:'1px solid #1e2d3d'}}>
+              <span style={{fontSize:14}}>{label}</span>
+              <span style={{...C.sky, fontWeight:800, fontSize:17}}>{pts} pkt</span>
             </div>
           ))}
-          <div style={{display:'flex', justifyContent:'space-between', paddingTop:14}}>
-            <span style={{fontWeight:700}}>Maksymalnie możliwe</span>
-            <span style={{...C.gold, fontWeight:800, fontSize:22}}>73 pkt</span>
+          <div style={{...C.muted, fontSize:12, marginTop:10}}>
+            Maks. za mecze: 72 × 4 = <strong style={{color:'#67d7f5'}}>288 pkt</strong>
           </div>
         </div>
-        <div style={C.card({border:'1px solid #1e3a1e', marginBottom:16})}>
+
+        <div style={C.card({marginBottom:16, border:'1px solid #2a4020'})}>
+          <h4 style={{...C.gold, margin:'0 0 12px'}}>🏆 Punkty bonusowe</h4>
+          {SCORING_BONUS.map(({label,pts}) => (
+            <div key={label} style={{display:'flex', justifyContent:'space-between', alignItems:'center',
+                                     padding:'10px 0', borderBottom:'1px solid #1e2d3d'}}>
+              <span style={{fontSize:14}}>{label}</span>
+              <span style={{...C.gold, fontWeight:800, fontSize:17}}>{pts} pkt</span>
+            </div>
+          ))}
+          <div style={{...C.muted, fontSize:12, marginTop:10}}>
+            Maks. bonusy: 12×3 + 4×3 + 2×5 + 10 + 5 = <strong style={{color:'#f0b429'}}>73 pkt</strong>
+          </div>
+        </div>
+
+        <div style={{...C.card({border:'1px solid #3a5020', background:'#111c0f'}), textAlign:'center'}}>
+          <div style={{...C.muted, fontSize:13}}>Maksimum łącznie</div>
+          <div style={{...C.gold, fontSize:32, fontWeight:900, marginTop:4}}>361 pkt</div>
+        </div>
+
+        <div style={{...C.card({marginTop:16, border:'1px solid #1e3a1e'})}}>
           <h4 style={{...C.green, margin:'0 0 10px'}}>🔒 Blokady typowania</h4>
           <ul style={{...C.muted, fontSize:13, lineHeight:1.9, margin:0, paddingLeft:18}}>
-            <li><strong style={{color:'#e2e8f0'}}>Wynik meczu (kolejka 1)</strong> → blokuje się z kickoffem 1. meczu grupy</li>
-            <li><strong style={{color:'#e2e8f0'}}>Wynik meczu (kolejka 2)</strong> → ~5 dni po starcie grupy</li>
-            <li><strong style={{color:'#e2e8f0'}}>Wynik meczu (kolejka 3)</strong> → ~10 dni po starcie grupy</li>
+            <li><strong style={{color:'#e2e8f0'}}>Mecze kolejka 1</strong> → z kickoffem 1. meczu grupy</li>
+            <li><strong style={{color:'#e2e8f0'}}>Mecze kolejka 2</strong> → ~5 dni po starcie grupy</li>
+            <li><strong style={{color:'#e2e8f0'}}>Mecze kolejka 3</strong> → ~10 dni po starcie grupy</li>
             <li><strong style={{color:'#e2e8f0'}}>Zwycięzca grupy</strong> → z kickoffem 1. meczu grupy</li>
-            <li><strong style={{color:'#e2e8f0'}}>Faza pucharowa, mistrz, top strzelec</strong> → 28 czerwca (start Rundy 32)</li>
+            <li><strong style={{color:'#e2e8f0'}}>Faza pucharowa / Mistrz</strong> → 28 czerwca (Runda 32)</li>
           </ul>
-        </div>
-        <div style={C.card()}>
-          <h4 style={{...C.gold, margin:'0 0 10px'}}>📅 Blokady grup (czas warszawski)</h4>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:6}}>
-            {GROUP_LETTERS.map(g => (
-              <div key={g} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px',
-                                   background: isGroupLocked(g)?'#1a1010':'#1e2d3d', borderRadius:6}}>
-                <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:11,
-                               borderRadius:4, padding:'1px 7px'}}>{g}</span>
-                <span style={{fontSize:11, color: isGroupLocked(g)?'#f87171':'#4ade80'}}>
-                  {isGroupLocked(g) ? '🔒 Zablokowane' : formatLockTime(GROUP_LOCK_UTC[g])}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>
@@ -377,14 +464,20 @@ export default function App() {
   if (view === 'leaderboard') return (
     <div style={C.page}>
       {toast && <Toast msg={toast}/>}
-      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved}/>
+      {AdminModal}
+      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
       <div style={{maxWidth:1300, margin:'24px auto', padding:'0 16px'}}>
-        <div style={{display:'flex', alignItems:'baseline', gap:12, marginBottom:20}}>
-          <h2 style={{...C.gold, margin:0}}>📊 Ranking uczestników ({allPreds.length})</h2>
+        <div style={{display:'flex', alignItems:'baseline', gap:12, marginBottom:16}}>
+          <h2 style={{...C.gold, margin:0}}>📊 Ranking ({allPreds.length})</h2>
           <span style={{...C.muted, fontSize:12}}>• aktualizuje się na żywo</span>
+          {resultsEntered > 0 && (
+            <span style={{fontSize:12, background:'#1a2e1a', color:'#4ade80', borderRadius:4, padding:'2px 8px'}}>
+              ✅ {resultsEntered}/72 wyników
+            </span>
+          )}
         </div>
 
-        {allPreds.length === 0 ? (
+        {scoredPreds.length === 0 ? (
           <div style={{...C.card(), textAlign:'center', padding:60}}>
             <div style={{fontSize:48}}>🏟️</div>
             <p style={{...C.muted, marginTop:12}}>Brak typowań — bądź pierwszy!</p>
@@ -395,30 +488,34 @@ export default function App() {
                            borderRadius:14, overflow:'hidden', fontSize:13}}>
               <thead>
                 <tr style={{background:'#111820'}}>
-                  <th style={{padding:'12px 16px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', minWidth:130}}>Uczestnik</th>
-                  <th style={{padding:'12px 8px', color:'#67d7f5', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>⚽ Mecze</th>
+                  <th style={{padding:'12px 16px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap'}}>#</th>
+                  <th style={{padding:'12px 12px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap'}}>Uczestnik</th>
+                  <th style={{padding:'12px 10px', color:'#67d7f5', textAlign:'center', whiteSpace:'nowrap'}}>⚽ Mecze</th>
+                  <th style={{padding:'12px 10px', color:'#f0b429', textAlign:'center', whiteSpace:'nowrap'}}>🏆 Bonus</th>
+                  <th style={{padding:'12px 10px', color:'#4ade80', textAlign:'center', whiteSpace:'nowrap', background:'rgba(74,222,128,0.07)'}}>Razem</th>
                   {GROUP_LETTERS.map(g => (
-                    <th key={g} style={{padding:'12px 5px', color: isGroupLocked(g)?'#f87171':'#6b7a8d',
+                    <th key={g} style={{padding:'12px 4px', color: isGroupLocked(g)?'#f87171':'#6b7a8d',
                                         textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>
                       {isGroupLocked(g)?'🔒':''}{g}
                     </th>
                   ))}
-                  <th style={{padding:'12px 6px', color:'#6b7a8d', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>⚔️ Półf.</th>
-                  <th style={{padding:'12px 6px', color:'#6b7a8d', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>🎖️ Fin.</th>
-                  <th style={{padding:'12px 8px', color:'#d4a017', textAlign:'center', fontSize:12, whiteSpace:'nowrap'}}>🏆 Mistrz</th>
-                  <th style={{padding:'12px 8px', color:'#67d7f5', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>⚽ Top</th>
+                  <th style={{padding:'12px 6px', color:'#6b7a8d', textAlign:'center', fontSize:11}}>⚔️</th>
+                  <th style={{padding:'12px 8px', color:'#d4a017', textAlign:'center', fontSize:12}}>🏆</th>
                 </tr>
               </thead>
               <tbody>
-                {allPreds.map((p, i) => {
-                  const mFilled = countMatchFilled(p.data?.matchScores)
+                {scoredPreds.map((p, i) => {
                   const isMe = p.username === username
+                  const { matchPts, bonusPts, total } = p.score
                   return (
                     <tr key={i} style={{borderTop:'1px solid #1e2d3d',
-                                         background: isMe ? 'rgba(212,160,23,0.06)' : 'transparent'}}>
-                      <td style={{padding:'10px 16px', fontWeight:700, whiteSpace:'nowrap',
-                                  color: isMe ? '#d4a017' : '#e2e8f0'}}>
-                        {isMe ? '👤 ' : `${i+1}. `}{p.username}
+                                         background: isMe?'rgba(212,160,23,0.06)':'transparent'}}>
+                      <td style={{padding:'10px 16px', fontWeight:800, color: i===0?'#f0b429':i===1?'#aab4be':i===2?'#cd7f32':'#6b7a8d', fontSize:15}}>
+                        {i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`}
+                      </td>
+                      <td style={{padding:'10px 12px', fontWeight:700, whiteSpace:'nowrap',
+                                  color: isMe?'#d4a017':'#e2e8f0'}}>
+                        {isMe?'👤 ':''}{p.username}
                         <div style={{...C.muted, fontSize:10, fontWeight:400}}>
                           {p.updated_at ? new Date(p.updated_at).toLocaleString('pl-PL',{
                             day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'
@@ -426,40 +523,40 @@ export default function App() {
                         </div>
                       </td>
                       <td style={{padding:'8px', textAlign:'center'}}>
-                        <span style={{
-                          fontSize:12, fontWeight:700,
-                          color: mFilled===72 ? '#4ade80' : mFilled > 0 ? '#f0b429' : '#2a3f55',
-                        }}>
-                          {mFilled}/72
+                        <span style={{fontWeight:700, fontSize:14, color: matchPts>0?'#67d7f5':'#2a3f55'}}>
+                          {matchPts}
+                        </span>
+                      </td>
+                      <td style={{padding:'8px', textAlign:'center'}}>
+                        <span style={{fontWeight:700, fontSize:14, color: bonusPts>0?'#f0b429':'#2a3f55'}}>
+                          {bonusPts}
+                        </span>
+                      </td>
+                      <td style={{padding:'8px 12px', textAlign:'center', background:'rgba(74,222,128,0.04)'}}>
+                        <span style={{fontWeight:800, fontSize:16, color: total>0?'#4ade80':'#2a3f55'}}>
+                          {total}
                         </span>
                       </td>
                       {GROUP_LETTERS.map(g => {
                         const t = p.data?.groupWinners?.[g]
+                        const correct = results.groupWinners?.[g] && t === results.groupWinners[g]
                         return (
                           <td key={g} style={{padding:'8px 3px', textAlign:'center'}}>
-                            {t
-                              ? <span title={t} style={{fontSize:17, cursor:'help'}}>{FLAGS[t]||'🏳️'}</span>
-                              : <span style={{color:'#2a3f55'}}>—</span>}
+                            {t ? (
+                              <span title={t} style={{fontSize:16, cursor:'help', opacity: correct?1:0.5}}>
+                                {FLAGS[t]||'🏳️'}{correct?'✓':''}
+                              </span>
+                            ) : <span style={{color:'#2a3f55'}}>—</span>}
                           </td>
                         )
                       })}
-                      <td style={{padding:'8px', textAlign:'center', fontSize:15}}>
+                      <td style={{padding:'8px', textAlign:'center', fontSize:14}}>
                         {(p.data?.semifinalists||[]).filter(Boolean).map(t=>FLAGS[t]||'').join('')
                           || <span style={{color:'#2a3f55'}}>—</span>}
-                      </td>
-                      <td style={{padding:'8px', textAlign:'center', fontSize:13, whiteSpace:'nowrap'}}>
-                        {p.data?.finalist1 && p.data?.finalist2
-                          ? <span style={{color:'#aab4be'}}>{FLAGS[p.data.finalist1]||''} {FLAGS[p.data.finalist2]||''}</span>
-                          : <span style={{color:'#2a3f55'}}>—</span>}
                       </td>
                       <td style={{padding:'8px 10px', textAlign:'center', fontWeight:700, color:'#f0b429', whiteSpace:'nowrap', fontSize:13}}>
                         {p.data?.winner
                           ? `${FLAGS[p.data.winner]||''} ${p.data.winner}`
-                          : <span style={{color:'#2a3f55'}}>—</span>}
-                      </td>
-                      <td style={{padding:'8px 10px', textAlign:'center', color:'#67d7f5', whiteSpace:'nowrap', fontSize:13}}>
-                        {p.data?.topScorerCountry
-                          ? `${FLAGS[p.data.topScorerCountry]||''} ${p.data.topScorerCountry}`
                           : <span style={{color:'#2a3f55'}}>—</span>}
                       </td>
                     </tr>
@@ -470,8 +567,204 @@ export default function App() {
           </div>
         )}
         <p style={{...C.muted, fontSize:11, textAlign:'center', marginTop:16}}>
-          Finał: MetLife Stadium, New Jersey · 19 lipca 2026 · Punkty naliczone po turnieju
+          Finał: MetLife Stadium, New Jersey · 19 lipca 2026 · Punkty naliczane na bieżąco po każdym meczu
         </p>
+      </div>
+    </div>
+  )
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADMIN – wprowadzanie wyników
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (view === 'admin') return (
+    <div style={C.page}>
+      {toast && <Toast msg={toast}/>}
+      {AdminModal}
+      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
+      <div style={{maxWidth:1000, margin:'0 auto', padding:'20px 16px 40px'}}>
+        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:20}}>
+          <h2 style={{...C.gold, margin:0}}>⚙️ Panel wyników</h2>
+          <span style={{...C.muted, fontSize:13}}>
+            {Object.values(resultsDraft.matchScores||{}).filter(s=>s.h!==''&&s.a!=='').length}/72 meczów
+          </span>
+        </div>
+
+        {/* Admin tabs */}
+        <div style={{display:'flex', gap:4, marginBottom:20}}>
+          {['⚽ Mecze','🏆 Grupy','⚔️ Puchar','🥇 Mistrz'].map((label,i) => (
+            <button key={i} onClick={()=>setAdminStep(i)} style={{
+              flex:1, padding:'10px 4px',
+              background: adminStep===i?'#d4a017':'#161d27',
+              color: adminStep===i?'#000':'#6b7a8d',
+              border:`1px solid ${adminStep===i?'#d4a017':'#1e2d3d'}`,
+              borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:adminStep===i?700:500,
+            }}>{label}</button>
+          ))}
+        </div>
+
+        {/* ── ADMIN: MECZE ── */}
+        {adminStep === 0 && (<>
+          <div style={{display:'flex', gap:4, flexWrap:'wrap', marginBottom:14}}>
+            {GROUP_LETTERS.map(g => {
+              const gF = MATCHES[g].filter(m => {
+                const s = resultsDraft.matchScores?.[matchKey(g,m)]
+                return s?.h!==''&&s?.a!==''
+              }).length
+              return (
+                <button key={g} onClick={()=>setAdminGroup(g)} style={{
+                  padding:'5px 13px', position:'relative',
+                  background: adminGroup===g?'#d4a017':'#1e2d3d',
+                  color: adminGroup===g?'#000':'#e2e8f0',
+                  border:`1px solid ${adminGroup===g?'#d4a017':'#2a3f55'}`,
+                  borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:13,
+                }}>
+                  {g}
+                  {gF>0 && (
+                    <span style={{fontSize:9,position:'absolute',top:-5,right:-5,
+                      background:gF===6?'#4ade80':'#d4a017',color:'#000',borderRadius:8,padding:'1px 5px',fontWeight:800}}>
+                      {gF}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={C.card()}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16}}>
+              <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:14, borderRadius:6, padding:'3px 14px'}}>
+                GRUPA {adminGroup}
+              </span>
+              <span style={{...C.muted, fontSize:12, marginLeft:'auto'}}>
+                {MATCHES[adminGroup].filter(m=>{const s=resultsDraft.matchScores?.[matchKey(adminGroup,m)];return s?.h!==''&&s?.a!==''}).length}/6
+              </span>
+            </div>
+            {[1,2,3].map(md => (
+              <div key={md} style={{paddingTop:md>1?14:0, borderTop:md>1?'1px solid #1e2d3d':'none', marginBottom:4}}>
+                <div style={{...C.muted, fontSize:12, fontWeight:600, marginBottom:8}}>Kolejka {md}</div>
+                {MATCHES[adminGroup].filter(m=>m.matchday===md).map(m => {
+                  const key = matchKey(adminGroup, m)
+                  const score = resultsDraft.matchScores?.[key] || {h:'',a:''}
+                  const filled = score.h!==''&&score.a!==''
+                  return (
+                    <div key={key} style={{
+                      display:'grid', gridTemplateColumns:'1fr auto 1fr',
+                      alignItems:'center', gap:10, padding:'9px 6px', marginBottom:4,
+                      background: filled?'rgba(74,222,128,0.05)':'transparent',
+                      border: filled?'1px solid rgba(74,222,128,0.2)':'1px solid transparent',
+                      borderRadius:8,
+                    }}>
+                      <span style={{textAlign:'right', fontSize:14, color: filled?'#e2e8f0':'#bcc6d4', fontWeight:filled?600:400}}>
+                        {FLAGS[m.home]||'🏳️'} {m.home}
+                      </span>
+                      <div style={{display:'flex', alignItems:'center', gap:5}}>
+                        <ScoreInput val={score.h} onChange={v=>setResMatchScore(adminGroup,m,'h',v)} locked={false}/>
+                        <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
+                        <ScoreInput val={score.a} onChange={v=>setResMatchScore(adminGroup,m,'a',v)} locked={false}/>
+                      </div>
+                      <span style={{textAlign:'left', fontSize:14, color: filled?'#e2e8f0':'#bcc6d4', fontWeight:filled?600:400}}>
+                        {m.away} {FLAGS[m.away]||'🏳️'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </>)}
+
+        {/* ── ADMIN: GRUPY ── */}
+        {adminStep === 1 && (
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))', gap:12}}>
+            {GROUP_LETTERS.map(g => (
+              <div key={g} style={C.card({border: resultsDraft.groupWinners[g]?'1px solid #4ade80':'1px solid #1e2d3d'})}>
+                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                  <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:13,borderRadius:6,padding:'2px 10px'}}>GR {g}</span>
+                  {resultsDraft.groupWinners[g] && (
+                    <span style={{...C.green, fontSize:12, fontWeight:600, marginLeft:'auto'}}>
+                      {FLAGS[resultsDraft.groupWinners[g]]||''} {resultsDraft.groupWinners[g]}
+                    </span>
+                  )}
+                </div>
+                {GROUPS[g].map(team => (
+                  <label key={team} style={{
+                    display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:8, cursor:'pointer',
+                    background: resultsDraft.groupWinners[g]===team?'rgba(74,222,128,0.1)':'transparent', marginBottom:3,
+                  }}>
+                    <input type="radio" name={`rg${g}`} checked={resultsDraft.groupWinners[g]===team}
+                      onChange={() => setResGW(g, team)}
+                      style={{accentColor:'#4ade80', width:16, height:16}}/>
+                    <span style={{color: resultsDraft.groupWinners[g]===team?'#4ade80':'#bcc6d4', fontSize:14}}>
+                      {FLAGS[team]||'🏳️'} {team}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── ADMIN: PUCHAR ── */}
+        {adminStep === 2 && (
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20}}>
+            <div style={C.card()}>
+              <h4 style={{...C.gold, margin:'0 0 14px'}}>⚔️ Cztery półfinaliści</h4>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{marginBottom:12}}>
+                  <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Półfinalista #{i+1}</label>
+                  <select value={resultsDraft.semifinalists[i]} onChange={e=>setResSF(i,e.target.value)} style={C.sel}>
+                    <option value="">— wybierz —</option>
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <div style={C.card()}>
+              <h4 style={{...C.gold, margin:'0 0 14px'}}>🎖️ Finaliści</h4>
+              {['finalist1','finalist2'].map((k,i) => (
+                <div key={k} style={{marginBottom:12}}>
+                  <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Finalista #{i+1}</label>
+                  <select value={resultsDraft[k]} onChange={e=>setResKey(k,e.target.value)} style={C.sel}>
+                    <option value="">— wybierz —</option>
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── ADMIN: MISTRZ ── */}
+        {adminStep === 3 && (
+          <div style={{maxWidth:480, display:'flex', flexDirection:'column', gap:16}}>
+            <div style={C.card({border:'1px solid #3a5020', background:'#111c0f'})}>
+              <h4 style={{...C.gold, margin:'0 0 12px'}}>🏆 Mistrz Świata 2026</h4>
+              <select value={resultsDraft.winner} onChange={e=>setResKey('winner',e.target.value)}
+                style={{...C.sel, border:'1px solid #3a5020'}}>
+                <option value="">— wybierz —</option>
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+              </select>
+            </div>
+            <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
+              <h4 style={{...C.sky, margin:'0 0 12px'}}>⚽ Kraj najlepszego strzelca</h4>
+              <select value={resultsDraft.topScorerCountry} onChange={e=>setResKey('topScorerCountry',e.target.value)}
+                style={{...C.sel, border:'1px solid #0e3050'}}>
+                <option value="">— wybierz —</option>
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div style={{marginTop:24, display:'flex', justifyContent:'flex-end', gap:12}}>
+          <button onClick={() => setView('leaderboard')} style={C.btn('#1e2d3d','#ccc')}>
+            Podgląd rankingu →
+          </button>
+          <button onClick={handleSaveResults} disabled={loading}
+            style={{...C.btn('#00c850','#fff'), padding:'12px 32px', fontSize:15, opacity:loading?0.7:1}}>
+            {loading ? 'Zapisuję...' : '💾 Zapisz wyniki'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -482,11 +775,11 @@ export default function App() {
   return (
     <div style={C.page}>
       {toast && <Toast msg={toast}/>}
-      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved}/>
+      {AdminModal}
+      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
 
       <div style={{maxWidth:1000, margin:'0 auto', padding:'20px 16px 40px'}}>
 
-        {/* ── TABY KROKÓW ───────────────────────────────────────────────── */}
         <div style={{display:'flex', gap:4, marginBottom:24}}>
           {[
             {icon:'⚽', label:'Mecze',  ok: matchFilled > 0},
@@ -497,104 +790,95 @@ export default function App() {
           ].map(({icon,label,ok},i) => (
             <button key={i} onClick={()=>setStep(i)} style={{
               flex:1, minWidth:0, padding:'10px 4px',
-              background: step===i ? '#d4a017' : ok ? '#1a2e1a' : '#161d27',
-              color: step===i ? '#000' : ok ? '#4ade80' : '#6b7a8d',
-              border:`1px solid ${step===i ? '#d4a017' : ok ? '#2a4d2a' : '#1e2d3d'}`,
+              background: step===i?'#d4a017':ok?'#1a2e1a':'#161d27',
+              color: step===i?'#000':ok?'#4ade80':'#6b7a8d',
+              border:`1px solid ${step===i?'#d4a017':ok?'#2a4d2a':'#1e2d3d'}`,
               borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:step===i?700:500,
             }}>
-              {icon} {label}{ok && step!==i ? ' ✓' : ''}
+              {icon} {label}{ok&&step!==i?' ✓':''}
             </button>
           ))}
         </div>
 
-        {/* ── KROK 0: MECZE GRUPOWE ─────────────────────────────────────── */}
+        {/* ── KROK 0: MECZE ─────────────────────────────────────────────── */}
         {step === 0 && (<>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:16}}>
             <h3 style={{margin:0}}>⚽ Wyniki meczów grupowych</h3>
-            <span style={{...C.muted, fontSize:13}}>
-              {matchFilled}/72{matchFilled===72 && <span style={C.gold}> ✓</span>}
-            </span>
+            <span style={{...C.muted, fontSize:13}}>{matchFilled}/72{matchFilled===72&&<span style={C.gold}> ✓</span>}</span>
           </div>
 
-          {/* Zakładki grup */}
           <div style={{display:'flex', gap:4, flexWrap:'wrap', marginBottom:14}}>
             {GROUP_LETTERS.map(g => {
-              const gFilled = MATCHES[g].filter(m => {
-                const s = pred.matchScores?.[matchKey(g, m)]
-                return s?.h !== '' && s?.a !== ''
-              }).length
-              const allLocked = [1,2,3].every(md => isMatchLocked(g, md))
+              const gFilled = MATCHES[g].filter(m=>{const s=pred.matchScores?.[matchKey(g,m)];return s?.h!==''&&s?.a!==''}).length
+              const allLocked = [1,2,3].every(md=>isMatchLocked(g,md))
               return (
-                <button key={g} onClick={() => setMatchGroup(g)} style={{
+                <button key={g} onClick={()=>setMatchGroup(g)} style={{
                   padding:'5px 13px', position:'relative',
-                  background: matchGroup===g ? '#d4a017' : allLocked ? '#1a1010' : '#1e2d3d',
-                  color: matchGroup===g ? '#000' : allLocked ? '#f87171' : '#e2e8f0',
-                  border:'1px solid ' + (matchGroup===g ? '#d4a017' : allLocked ? '#3a1a1a' : '#2a3f55'),
+                  background: matchGroup===g?'#d4a017':allLocked?'#1a1010':'#1e2d3d',
+                  color: matchGroup===g?'#000':allLocked?'#f87171':'#e2e8f0',
+                  border:'1px solid '+(matchGroup===g?'#d4a017':allLocked?'#3a1a1a':'#2a3f55'),
                   borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:13,
                 }}>
                   {g}
-                  {gFilled > 0 && (
-                    <span style={{
-                      fontSize:9, position:'absolute', top:-5, right:-5,
-                      background: gFilled===6 ? '#4ade80' : '#d4a017',
-                      color:'#000', borderRadius:8, padding:'1px 5px', fontWeight:800,
-                    }}>{gFilled}</span>
-                  )}
+                  {gFilled>0&&<span style={{fontSize:9,position:'absolute',top:-5,right:-5,background:gFilled===6?'#4ade80':'#d4a017',color:'#000',borderRadius:8,padding:'1px 5px',fontWeight:800}}>{gFilled}</span>}
                 </button>
               )
             })}
           </div>
 
-          {/* Mecze wybranej grupy */}
           <div style={C.card()}>
-            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16, flexWrap:'wrap'}}>
-              <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:14,
-                             borderRadius:6, padding:'3px 14px'}}>GRUPA {matchGroup}</span>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:16}}>
+              <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:14,borderRadius:6,padding:'3px 14px'}}>GRUPA {matchGroup}</span>
               <span style={{...C.muted, fontSize:12, marginLeft:'auto'}}>
-                {MATCHES[matchGroup].filter(m => {
-                  const s = pred.matchScores?.[matchKey(matchGroup, m)]
-                  return s?.h !== '' && s?.a !== ''
-                }).length}/6 meczów
+                {MATCHES[matchGroup].filter(m=>{const s=pred.matchScores?.[matchKey(matchGroup,m)];return s?.h!==''&&s?.a!==''}).length}/6
               </span>
             </div>
-
             {[1,2,3].map(md => {
               const mdLocked = isMatchLocked(matchGroup, md)
               return (
-                <div key={md} style={{
-                  marginBottom: md < 3 ? 4 : 0,
-                  paddingTop: md > 1 ? 14 : 0,
-                  borderTop: md > 1 ? '1px solid #1e2d3d' : 'none',
-                }}>
+                <div key={md} style={{paddingTop:md>1?14:0,borderTop:md>1?'1px solid #1e2d3d':'none',marginBottom:4}}>
                   <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
                     <span style={{...C.muted, fontSize:12, fontWeight:600}}>Kolejka {md}</span>
-                    <LockBadge lockTime={getMatchLock(matchGroup, md)}/>
+                    <LockBadge lockTime={getMatchLock(matchGroup,md)}/>
                   </div>
-                  {MATCHES[matchGroup].filter(m => m.matchday === md).map(m => {
+                  {MATCHES[matchGroup].filter(m=>m.matchday===md).map(m => {
                     const key   = matchKey(matchGroup, m)
-                    const score = pred.matchScores?.[key] || { h:'', a:'' }
-                    const filled = score.h !== '' && score.a !== ''
+                    const score = pred.matchScores?.[key]||{h:'',a:''}
+                    const actual= results.matchScores?.[key]
+                    const filled = score.h!==''&&score.a!==''
+                    const hasResult = actual?.h!==''&&actual?.a!==''
+                    let pts = null
+                    if (hasResult && filled) {
+                      const s = calcScore({matchScores:{[key]:score}},{matchScores:{[key]:actual}})
+                      pts = s.matchPts
+                    }
                     return (
                       <div key={key} style={{
                         display:'grid', gridTemplateColumns:'1fr auto 1fr',
                         alignItems:'center', gap:10, padding:'9px 6px', marginBottom:4,
-                        background: filled ? 'rgba(212,160,23,0.05)' : 'transparent',
-                        border: filled ? '1px solid rgba(212,160,23,0.2)' : '1px solid transparent',
+                        background: filled?'rgba(212,160,23,0.05)':'transparent',
+                        border: filled?'1px solid rgba(212,160,23,0.2)':'1px solid transparent',
                         borderRadius:8,
                       }}>
-                        <span style={{textAlign:'right', fontSize:14,
-                                      color: filled ? '#e2e8f0' : mdLocked ? '#4a5568' : '#bcc6d4',
-                                      fontWeight: filled ? 600 : 400}}>
+                        <span style={{textAlign:'right',fontSize:14,color:filled?'#e2e8f0':mdLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
                           {FLAGS[m.home]||'🏳️'} {m.home}
                         </span>
-                        <div style={{display:'flex', alignItems:'center', gap:5}}>
-                          <input {...scoreInput(score.h, e => setMatchScore(matchGroup, m, 'h', e.target.value), mdLocked)}/>
-                          <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
-                          <input {...scoreInput(score.a, e => setMatchScore(matchGroup, m, 'a', e.target.value), mdLocked)}/>
+                        <div style={{display:'flex', alignItems:'center', gap:5, flexDirection:'column'}}>
+                          <div style={{display:'flex', alignItems:'center', gap:5}}>
+                            <ScoreInput val={score.h} onChange={v=>setMatchScore(matchGroup,m,'h',v)} locked={mdLocked}/>
+                            <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
+                            <ScoreInput val={score.a} onChange={v=>setMatchScore(matchGroup,m,'a',v)} locked={mdLocked}/>
+                          </div>
+                          {hasResult && (
+                            <span style={{fontSize:11, color:'#6b7a8d'}}>
+                              wynik: {actual.h}:{actual.a}
+                              {pts !== null && <span style={{marginLeft:4, color: pts===4?'#4ade80':pts===2?'#f0b429':'#f87171', fontWeight:700}}>
+                                {pts>0?`+${pts}pkt`:'0pkt'}
+                              </span>}
+                            </span>
+                          )}
                         </div>
-                        <span style={{textAlign:'left', fontSize:14,
-                                      color: filled ? '#e2e8f0' : mdLocked ? '#4a5568' : '#bcc6d4',
-                                      fontWeight: filled ? 600 : 400}}>
+                        <span style={{textAlign:'left',fontSize:14,color:filled?'#e2e8f0':mdLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
                           {m.away} {FLAGS[m.away]||'🏳️'}
                         </span>
                       </div>
@@ -606,9 +890,7 @@ export default function App() {
           </div>
 
           <div style={{display:'flex', justifyContent:'flex-end', marginTop:20}}>
-            <button onClick={()=>setStep(1)} style={C.btn('#d4a017','#000')}>
-              Dalej → Zwycięzcy grup
-            </button>
+            <button onClick={()=>setStep(1)} style={C.btn('#d4a017','#000')}>Dalej → Zwycięzcy grup</button>
           </div>
         </>)}
 
@@ -616,56 +898,34 @@ export default function App() {
         {step === 1 && (<>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:16}}>
             <h3 style={{margin:0}}>🏆 Kto wygra każdą grupę?</h3>
-            <span style={{...C.muted, fontSize:13}}>
-              {doneCount}/12{doneCount===12 && <span style={C.gold}> ✓ Komplet!</span>}
-            </span>
+            <span style={{...C.muted, fontSize:13}}>{doneCount}/12{doneCount===12&&<span style={C.gold}> ✓</span>}</span>
           </div>
-
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))', gap:12, marginBottom:20}}>
             {GROUP_LETTERS.map(g => {
               const locked = isGroupLocked(g)
               return (
-                <div key={g} style={C.card({
-                  border: pred.groupWinners[g] ? '1px solid #d4a017' : '1px solid #1e2d3d',
-                  opacity: locked ? 0.75 : 1,
-                })}>
-                  <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
-                    <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:13,
-                                   borderRadius:6, padding:'2px 10px'}}>GR {g}</span>
+                <div key={g} style={C.card({border:pred.groupWinners[g]?'1px solid #d4a017':'1px solid #1e2d3d',opacity:locked?0.75:1})}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
+                    <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:13,borderRadius:6,padding:'2px 10px'}}>GR {g}</span>
                     <LockBadge lockTime={GROUP_LOCK_UTC[g]}/>
-                    {pred.groupWinners[g] && (
-                      <span style={{...C.gold, fontSize:12, fontWeight:600, marginLeft:'auto'}}>
-                        {FLAGS[pred.groupWinners[g]]||''} {pred.groupWinners[g]}
-                      </span>
-                    )}
+                    {pred.groupWinners[g]&&<span style={{...C.gold,fontSize:12,fontWeight:600,marginLeft:'auto'}}>{FLAGS[pred.groupWinners[g]]||''} {pred.groupWinners[g]}</span>}
                   </div>
                   {GROUPS[g].map(team => (
-                    <label key={team} style={{
-                      display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:8,
-                      cursor: locked ? 'not-allowed' : 'pointer',
-                      background: pred.groupWinners[g]===team ? 'rgba(212,160,23,0.1)' : 'transparent',
-                      marginBottom:3,
-                    }}>
+                    <label key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:8,
+                      cursor:locked?'not-allowed':'pointer',background:pred.groupWinners[g]===team?'rgba(212,160,23,0.1)':'transparent',marginBottom:3}}>
                       <input type="radio" name={`g${g}`} disabled={locked}
-                        checked={pred.groupWinners[g]===team}
-                        onChange={() => setGW(g, team)}
-                        style={{accentColor:'#d4a017', width:16, height:16}}
-                      />
-                      <span style={{color: pred.groupWinners[g]===team ? '#f0b429' : locked ? '#4a5568' : '#bcc6d4', fontSize:14}}>
+                        checked={pred.groupWinners[g]===team} onChange={()=>setGW(g,team)}
+                        style={{accentColor:'#d4a017',width:16,height:16}}/>
+                      <span style={{color:pred.groupWinners[g]===team?'#f0b429':locked?'#4a5568':'#bcc6d4',fontSize:14}}>
                         {FLAGS[team]||'🏳️'} {team}
                       </span>
                     </label>
                   ))}
-                  {locked && !pred.groupWinners[g] && (
-                    <p style={{...C.red, fontSize:12, marginTop:8, textAlign:'center'}}>
-                      ⚠️ Nie wytypowano przed blokadą
-                    </p>
-                  )}
+                  {locked&&!pred.groupWinners[g]&&<p style={{...C.red,fontSize:12,marginTop:8,textAlign:'center'}}>⚠️ Nie wytypowano przed blokadą</p>}
                 </div>
               )
             })}
           </div>
-
           <div style={{display:'flex', justifyContent:'space-between'}}>
             <button onClick={()=>setStep(0)} style={C.btn('#1e2d3d','#ccc')}>← Mecze</button>
             <button onClick={()=>setStep(2)} style={C.btn('#d4a017','#000')}>Dalej → Faza pucharowa</button>
@@ -678,31 +938,26 @@ export default function App() {
             <h3 style={{margin:0}}>⚔️ Faza pucharowa</h3>
             <LockBadge lockTime={KNOCKOUT_LOCK_UTC}/>
           </div>
-
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20}}>
             <div style={C.card()}>
-              <h4 style={{...C.gold, margin:'0 0 6px', fontSize:16}}>⚔️ Cztery półfinaliści</h4>
-              <p style={{...C.muted, fontSize:12, margin:'0 0 16px'}}>Które 4 drużyny dotrą do półfinałów?</p>
+              <h4 style={{...C.gold,margin:'0 0 14px',fontSize:16}}>⚔️ Cztery półfinaliści</h4>
               {[0,1,2,3].map(i => (
                 <div key={i} style={{marginBottom:12}}>
-                  <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Półfinalista #{i+1}</label>
+                  <label style={{...C.muted,fontSize:11,display:'block',marginBottom:4}}>Półfinalista #{i+1}</label>
                   <select disabled={knockoutLocked} value={pred.semifinalists[i]} onChange={e=>setSF(i,e.target.value)}
-                    style={{...C.sel, opacity:knockoutLocked?0.5:1, cursor:knockoutLocked?'not-allowed':'pointer'}}>
+                    style={{...C.sel,opacity:knockoutLocked?0.5:1}}>
                     <option value="">— wybierz drużynę —</option>
                     {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
                   </select>
                 </div>
               ))}
             </div>
-
             <div style={C.card()}>
-              <h4 style={{...C.gold, margin:'0 0 6px', fontSize:16}}>🎖️ Finaliści</h4>
-              <p style={{...C.muted, fontSize:12, margin:'0 0 16px'}}>Które 2 drużyny zagrają w finale?</p>
-              {['finalist1','finalist2'].map((k,i)=>(
+              <h4 style={{...C.gold,margin:'0 0 14px',fontSize:16}}>🎖️ Finaliści</h4>
+              {['finalist1','finalist2'].map((k,i) => (
                 <div key={k} style={{marginBottom:12}}>
-                  <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Finalista #{i+1}</label>
-                  <select disabled={knockoutLocked} value={pred[k]} onChange={e=>setKey(k,e.target.value)}
-                    style={{...C.sel, opacity:knockoutLocked?0.5:1}}>
+                  <label style={{...C.muted,fontSize:11,display:'block',marginBottom:4}}>Finalista #{i+1}</label>
+                  <select disabled={knockoutLocked} value={pred[k]} onChange={e=>setKey(k,e.target.value)} style={{...C.sel,opacity:knockoutLocked?0.5:1}}>
                     <option value="">— wybierz drużynę —</option>
                     {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
                   </select>
@@ -710,153 +965,98 @@ export default function App() {
               ))}
             </div>
           </div>
-
           <div style={{display:'flex', justifyContent:'space-between'}}>
             <button onClick={()=>setStep(1)} style={C.btn('#1e2d3d','#ccc')}>← Grupy</button>
             <button onClick={()=>setStep(3)} style={C.btn('#d4a017','#000')}>Dalej → Mistrz świata</button>
           </div>
         </>)}
 
-        {/* ── KROK 3: MISTRZ ŚWIATA ─────────────────────────────────────── */}
+        {/* ── KROK 3: MISTRZ ────────────────────────────────────────────── */}
         {step === 3 && (<>
           <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
             <h3 style={{margin:0}}>🥇 Mistrz Świata 2026</h3>
             <LockBadge lockTime={KNOCKOUT_LOCK_UTC}/>
           </div>
-
           <div style={{maxWidth:480, display:'flex', flexDirection:'column', gap:16, marginBottom:24}}>
             <div style={C.card({border:'1px solid #3a5020', background:'#111c0f'})}>
-              <h4 style={{...C.gold, margin:'0 0 12px', fontSize:16}}>🏆 Kto zostanie Mistrzem Świata 2026?</h4>
+              <h4 style={{...C.gold,margin:'0 0 12px',fontSize:16}}>🏆 Kto zostanie Mistrzem Świata 2026?</h4>
               <select disabled={knockoutLocked} value={pred.winner} onChange={e=>setKey('winner',e.target.value)}
-                style={{...C.sel, border:'1px solid #3a5020', fontSize:15, padding:'12px 14px',
-                        opacity:knockoutLocked?0.5:1, cursor:knockoutLocked?'not-allowed':'pointer'}}>
+                style={{...C.sel,border:'1px solid #3a5020',fontSize:15,padding:'12px 14px',opacity:knockoutLocked?0.5:1}}>
                 <option value="">— wybierz zwycięzcę —</option>
                 {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
               </select>
-              {pred.winner && (
-                <div style={{marginTop:14, textAlign:'center'}}>
-                  <div style={{fontSize:52}}>{FLAGS[pred.winner]||'🏆'}</div>
-                  <div style={{...C.gold, fontWeight:800, fontSize:22, marginTop:6}}>{pred.winner}</div>
-                </div>
-              )}
+              {pred.winner&&<div style={{marginTop:14,textAlign:'center'}}><div style={{fontSize:52}}>{FLAGS[pred.winner]||'🏆'}</div><div style={{...C.gold,fontWeight:800,fontSize:22,marginTop:6}}>{pred.winner}</div></div>}
             </div>
-
             <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
-              <h4 style={{...C.sky, margin:'0 0 12px', fontSize:16}}>⚽ Kraj najlepszego strzelca turnieju</h4>
+              <h4 style={{...C.sky,margin:'0 0 12px',fontSize:16}}>⚽ Kraj najlepszego strzelca turnieju</h4>
               <select disabled={knockoutLocked} value={pred.topScorerCountry} onChange={e=>setKey('topScorerCountry',e.target.value)}
-                style={{...C.sel, border:'1px solid #0e3050', fontSize:15, padding:'12px 14px',
-                        opacity:knockoutLocked?0.5:1, cursor:knockoutLocked?'not-allowed':'pointer'}}>
+                style={{...C.sel,border:'1px solid #0e3050',fontSize:15,padding:'12px 14px',opacity:knockoutLocked?0.5:1}}>
                 <option value="">— wybierz kraj —</option>
                 {ALL_TEAMS.map(t=><option key={t} value={t}>{FLAGS[t]||'🏳️'} {t}</option>)}
               </select>
-              {pred.topScorerCountry && (
-                <div style={{marginTop:10, textAlign:'center', fontSize:32}}>
-                  {FLAGS[pred.topScorerCountry]||'⚽'}{' '}
-                  <span style={{...C.sky, fontSize:16, fontWeight:700}}>{pred.topScorerCountry}</span>
-                </div>
-              )}
             </div>
           </div>
-
           <div style={{display:'flex', justifyContent:'space-between'}}>
             <button onClick={()=>setStep(2)} style={C.btn('#1e2d3d','#ccc')}>← Puchar</button>
             <button onClick={()=>setStep(4)} style={C.btn('#d4a017','#000')}>Dalej → Podsumowanie</button>
           </div>
         </>)}
 
-        {/* ── KROK 4: PODSUMOWANIE + ZAPIS ──────────────────────────────── */}
+        {/* ── KROK 4: PODSUMOWANIE ──────────────────────────────────────── */}
         {step === 4 && (<>
           <h3 style={{margin:'0 0 20px'}}>📋 Podsumowanie typowania</h3>
-
-          {/* Mecze summary */}
           <div style={C.card({marginBottom:14})}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: matchFilled > 0 ? 10 : 0}}>
-              <span style={{...C.muted, fontSize:14}}>⚽ Wyniki meczów grupowych</span>
-              <span style={{fontWeight:700, fontSize:14,
-                            color: matchFilled===72 ? '#4ade80' : matchFilled > 0 ? '#f0b429' : '#6b7a8d'}}>
-                {matchFilled}/72
-              </span>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:matchFilled>0?10:0}}>
+              <span style={{...C.muted,fontSize:14}}>⚽ Wyniki meczów grupowych</span>
+              <span style={{fontWeight:700,fontSize:14,color:matchFilled===72?'#4ade80':matchFilled>0?'#f0b429':'#6b7a8d'}}>{matchFilled}/72</span>
             </div>
-            {matchFilled > 0 && (
-              <div style={{display:'flex', gap:5, flexWrap:'wrap'}}>
-                {GROUP_LETTERS.map(g => {
-                  const gF = MATCHES[g].filter(m => {
-                    const s = pred.matchScores?.[matchKey(g, m)]
-                    return s?.h !== '' && s?.a !== ''
-                  }).length
-                  return (
-                    <span key={g} style={{
-                      fontSize:11, padding:'2px 8px', borderRadius:4, fontWeight:700,
-                      background: gF===6 ? '#1a2e1a' : gF > 0 ? '#1e2520' : '#1e2d3d',
-                      color: gF===6 ? '#4ade80' : gF > 0 ? '#f0b429' : '#6b7a8d',
-                    }}>{g}: {gF}/6</span>
-                  )
+            {matchFilled>0&&(
+              <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                {GROUP_LETTERS.map(g=>{
+                  const gF=MATCHES[g].filter(m=>{const s=pred.matchScores?.[matchKey(g,m)];return s?.h!==''&&s?.a!==''}).length
+                  return <span key={g} style={{fontSize:11,padding:'2px 8px',borderRadius:4,fontWeight:700,background:gF===6?'#1a2e1a':gF>0?'#1e2520':'#1e2d3d',color:gF===6?'#4ade80':gF>0?'#f0b429':'#6b7a8d'}}>{g}: {gF}/6</span>
                 })}
               </div>
             )}
           </div>
-
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
             <div style={C.card()}>
-              <h4 style={{...C.gold, margin:'0 0 12px', fontSize:14}}>🏆 Zwycięzcy grup</h4>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:5}}>
-                {GROUP_LETTERS.map(g => (
-                  <div key={g} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 8px',
-                                       background: isGroupLocked(g)?'#1a1010':'#1e2d3d', borderRadius:5}}>
-                    <span style={{background:'#d4a017', color:'#000', fontWeight:800, fontSize:10,
-                                   borderRadius:3, padding:'1px 5px', minWidth:16, textAlign:'center'}}>{g}</span>
-                    <span style={{fontSize:12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                      {pred.groupWinners[g]
-                        ? `${FLAGS[pred.groupWinners[g]]||''} ${pred.groupWinners[g]}`
-                        : <span style={{color: isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️':'—'}</span>}
+              <h4 style={{...C.gold,margin:'0 0 12px',fontSize:14}}>🏆 Zwycięzcy grup</h4>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
+                {GROUP_LETTERS.map(g=>(
+                  <div key={g} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',background:isGroupLocked(g)?'#1a1010':'#1e2d3d',borderRadius:5}}>
+                    <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:10,borderRadius:3,padding:'1px 5px',minWidth:16,textAlign:'center'}}>{g}</span>
+                    <span style={{fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      {pred.groupWinners[g]?`${FLAGS[pred.groupWinners[g]]||''} ${pred.groupWinners[g]}`:<span style={{color:isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️':'—'}</span>}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
-
-            <div style={{display:'flex', flexDirection:'column', gap:10}}>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <div style={C.card()}>
-                <h4 style={{...C.gold, margin:'0 0 8px', fontSize:14}}>⚔️ Półfinaliści</h4>
-                {pred.semifinalists.map((t,i)=>(
-                  <div key={i} style={{color:'#bcc6d4', fontSize:13, marginBottom:3}}>
-                    #{i+1} {t ? `${FLAGS[t]||''} ${t}` : <span style={{color:'#2a3f55'}}>—</span>}
-                  </div>
-                ))}
+                <h4 style={{...C.gold,margin:'0 0 8px',fontSize:14}}>⚔️ Półfinaliści</h4>
+                {pred.semifinalists.map((t,i)=><div key={i} style={{color:'#bcc6d4',fontSize:13,marginBottom:3}}>#{i+1} {t?`${FLAGS[t]||''} ${t}`:<span style={{color:'#2a3f55'}}>—</span>}</div>)}
               </div>
               <div style={C.card()}>
-                <h4 style={{...C.gold, margin:'0 0 8px', fontSize:14}}>🎖️ Finał</h4>
-                <div style={{color:'#bcc6d4', fontSize:13}}>
-                  {pred.finalist1 ? `${FLAGS[pred.finalist1]||''} ${pred.finalist1}` : '—'}
-                  <span style={{color:'#2a3f55'}}> vs </span>
-                  {pred.finalist2 ? `${FLAGS[pred.finalist2]||''} ${pred.finalist2}` : '—'}
-                </div>
+                <h4 style={{...C.gold,margin:'0 0 8px',fontSize:14}}>🎖️ Finał</h4>
+                <div style={{color:'#bcc6d4',fontSize:13}}>{pred.finalist1?`${FLAGS[pred.finalist1]||''} ${pred.finalist1}`:'—'}<span style={{color:'#2a3f55'}}> vs </span>{pred.finalist2?`${FLAGS[pred.finalist2]||''} ${pred.finalist2}`:'—'}</div>
               </div>
-              <div style={C.card({border:'1px solid #3a5020', background:'#111c0f'})}>
-                <div style={{...C.muted, fontSize:11}}>🏆 MISTRZ ŚWIATA 2026</div>
-                <div style={{...C.gold, fontSize:18, fontWeight:800, marginTop:4}}>
-                  {pred.winner
-                    ? `${FLAGS[pred.winner]||''} ${pred.winner}`
-                    : <span style={{color:'#2a3f55', fontSize:13}}>Nie wybrano</span>}
-                </div>
+              <div style={C.card({border:'1px solid #3a5020',background:'#111c0f'})}>
+                <div style={{...C.muted,fontSize:11}}>🏆 MISTRZ ŚWIATA 2026</div>
+                <div style={{...C.gold,fontSize:18,fontWeight:800,marginTop:4}}>{pred.winner?`${FLAGS[pred.winner]||''} ${pred.winner}`:<span style={{color:'#2a3f55',fontSize:13}}>Nie wybrano</span>}</div>
               </div>
-              <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
-                <div style={{...C.muted, fontSize:11}}>⚽ KRAJ TOP STRZELCA</div>
-                <div style={{...C.sky, fontSize:16, fontWeight:700, marginTop:4}}>
-                  {pred.topScorerCountry
-                    ? `${FLAGS[pred.topScorerCountry]||''} ${pred.topScorerCountry}`
-                    : <span style={{color:'#2a3f55', fontSize:13}}>Nie wybrano</span>}
-                </div>
+              <div style={C.card({border:'1px solid #0e3050',background:'#0b1520'})}>
+                <div style={{...C.muted,fontSize:11}}>⚽ KRAJ TOP STRZELCA</div>
+                <div style={{...C.sky,fontSize:16,fontWeight:700,marginTop:4}}>{pred.topScorerCountry?`${FLAGS[pred.topScorerCountry]||''} ${pred.topScorerCountry}`:<span style={{color:'#2a3f55',fontSize:13}}>Nie wybrano</span>}</div>
               </div>
             </div>
           </div>
-
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
             <button onClick={()=>setStep(3)} style={C.btn('#1e2d3d','#ccc')}>← Edytuj</button>
             <button onClick={handleSave} disabled={loading}
-              style={{...C.btn('#00c850','#fff'), padding:'14px 36px', fontSize:16,
-                      boxShadow:'0 4px 20px rgba(0,200,80,0.3)', opacity:loading?0.7:1}}>
-              {loading ? 'Zapisuję...' : '💾 Zapisz i przejdź do rankingu!'}
+              style={{...C.btn('#00c850','#fff'),padding:'14px 36px',fontSize:16,boxShadow:'0 4px 20px rgba(0,200,80,0.3)',opacity:loading?0.7:1}}>
+              {loading?'Zapisuję...':'💾 Zapisz i przejdź do rankingu!'}
             </button>
           </div>
         </>)}

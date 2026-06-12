@@ -86,13 +86,71 @@ export const MATCHES = Object.fromEntries(
 
 export const matchKey = (g, m) => `${g}_${m.home}v${m.away}`
 
-export const SCORING = [
-  { label: 'Zwycięzca grupy (×12)', pts: 3 },
-  { label: 'Półfinalista (×4)', pts: 3 },
-  { label: 'Finalista (×2)', pts: 5 },
-  { label: 'Mistrz świata', pts: 10 },
-  { label: 'Kraj top strzelca', pts: 5 },
+export const SCORING_MATCHES = [
+  { label: 'Poprawny wynik meczu (wygrana / remis)', pts: 2 },
+  { label: 'Dokładny wynik meczu', pts: 4 },
 ]
+
+export const SCORING_BONUS = [
+  { label: 'Zwycięzca grupy (×12) — BONUS', pts: 3 },
+  { label: 'Półfinalista (×4) — BONUS', pts: 3 },
+  { label: 'Finalista (×2) — BONUS', pts: 5 },
+  { label: 'Mistrz świata — BONUS', pts: 10 },
+  { label: 'Kraj top strzelca — BONUS', pts: 5 },
+]
+
+export const SCORING = [...SCORING_MATCHES, ...SCORING_BONUS]
+
+export const EMPTY_RESULTS = {
+  matchScores: Object.fromEntries(
+    Object.entries(MATCHES).flatMap(([g, ms]) =>
+      ms.map(m => [matchKey(g, m), { h: '', a: '' }])
+    )
+  ),
+  groupWinners:    Object.fromEntries(GROUP_LETTERS.map(g => [g, ''])),
+  semifinalists:   ['', '', '', ''],
+  finalist1: '', finalist2: '', winner: '', topScorerCountry: '',
+}
+
+export function calcScore(pred, results) {
+  if (!pred || !results) return { matchPts: 0, bonusPts: 0, total: 0 }
+  let matchPts = 0, bonusPts = 0
+
+  for (const [key, actual] of Object.entries(results.matchScores || {})) {
+    if (actual.h === '' || actual.a === '') continue
+    const up = pred.matchScores?.[key]
+    if (!up || up.h === '' || up.a === '') continue
+    const ah = parseInt(actual.h), aa = parseInt(actual.a)
+    const uh = parseInt(up.h),     ua = parseInt(up.a)
+    if (uh === ah && ua === aa) {
+      matchPts += 4
+    } else {
+      const ar = ah > aa ? 1 : ah < aa ? -1 : 0
+      const ur = uh > ua ? 1 : uh < ua ? -1 : 0
+      if (ar === ur) matchPts += 2
+    }
+  }
+
+  GROUP_LETTERS.forEach(g => {
+    if (results.groupWinners?.[g] && pred.groupWinners?.[g] === results.groupWinners[g])
+      bonusPts += 3
+  })
+
+  const actualSFs = (results.semifinalists || []).filter(Boolean)
+  ;(pred.semifinalists || []).forEach(sf => {
+    if (sf && actualSFs.includes(sf)) bonusPts += 3
+  })
+
+  const actualFs = [results.finalist1, results.finalist2].filter(Boolean)
+  ;[pred.finalist1, pred.finalist2].forEach(f => {
+    if (f && actualFs.includes(f)) bonusPts += 5
+  })
+
+  if (pred.winner && pred.winner === results.winner) bonusPts += 10
+  if (pred.topScorerCountry && pred.topScorerCountry === results.topScorerCountry) bonusPts += 5
+
+  return { matchPts, bonusPts, total: matchPts + bonusPts }
+}
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 export const isGroupLocked = (group) => new Date() >= GROUP_LOCK_UTC[group]
