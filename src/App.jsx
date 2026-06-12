@@ -247,16 +247,41 @@ export default function App() {
         ...EMPTY_RESULTS, ...current,
         matchScores: { ...EMPTY_RESULTS.matchScores, ...(current.matchScores || {}), ...newScores },
       }
-      await supabase.from('results').upsert(
+      const { error } = await supabase.from('results').upsert(
         { id: 'current', data: merged, updated_at: new Date().toISOString() },
         { onConflict: 'id' }
       )
+      if (!error) await loadResults()
+      else console.error('Supabase upsert error:', error)
     } catch (e) {
       console.error('Football API sync error:', e)
     }
-  }, [])
+  }, [loadResults])
 
   useEffect(() => { loadAll(); loadResults() }, [loadAll, loadResults])
+
+  // ── Przywróć sesję po odświeżeniu ────────────────────────────────────────
+  useEffect(() => {
+    const saved = localStorage.getItem('mundial_session')
+    if (!saved) return
+    try {
+      const { name, pin } = JSON.parse(saved)
+      supabase.from('predictions').select('*').eq('username', name).maybeSingle()
+        .then(({ data }) => {
+          if (data?.data) {
+            const storedPin = data.data.pin
+            if (storedPin && storedPin !== pin) { localStorage.removeItem('mundial_session'); return }
+            setPred({
+              ...EMPTY_PRED, ...data.data,
+              groupWinners: { ...EMPTY_PRED.groupWinners, ...(data.data.groupWinners || {}) },
+              matchScores:  { ...EMPTY_PRED.matchScores,  ...(data.data.matchScores  || {}) },
+            })
+            setSaved(true)
+          }
+          setUserPin(pin); setUser(name); setView('predict')
+        })
+    } catch { localStorage.removeItem('mundial_session') }
+  }, [])
 
   useEffect(() => {
     const ch = supabase.channel('pred-ch')
@@ -296,6 +321,7 @@ export default function App() {
       setPred(EMPTY_PRED); setSaved(false)
     }
     setUserPin(pin); setUser(name); setStep(0); setView('predict')
+    localStorage.setItem('mundial_session', JSON.stringify({ name, pin }))
   }
 
   const handleSave = async () => {
@@ -330,6 +356,7 @@ export default function App() {
   }
 
   const logout = () => {
+    localStorage.removeItem('mundial_session')
     setView('login'); setUser(''); setName(''); setPinInput(''); setUserPin('')
     setSaved(false); setPred(EMPTY_PRED); setLoginErr('')
   }
