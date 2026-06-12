@@ -1229,18 +1229,24 @@ export default function App() {
                             <ScoreInput val={score.a} onChange={v=>setMatchScore(matchGroup,m,'a',v)} locked={mdLocked}/>
                           </div>
                           {hasResult && (
-                            <span style={{fontSize:11, color:'#6b7a8d'}}>
-                              wynik: {actual.h}:{actual.a}
+                            <div style={{display:'flex', alignItems:'center', gap:6, marginTop:4}}>
+                              <span style={{fontSize:10, color:'#4a5568', fontWeight:500}}>wynik</span>
+                              <span style={{
+                                fontSize:15, fontWeight:800,
+                                color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429': pts===0?'#f87171':'#e2e8f0',
+                                background: pts===4?'rgba(74,222,128,0.12)': pts===3?'rgba(103,215,245,0.12)': pts===2?'rgba(240,180,41,0.12)': pts===0?'rgba(248,113,113,0.12)':'rgba(255,255,255,0.06)',
+                                borderRadius:6, padding:'2px 8px',
+                              }}>
+                                {actual.h}:{actual.a}
+                              </span>
                               {pts !== null
-                                ? <span style={{marginLeft:6, fontWeight:700, fontSize:12,
+                                ? <span style={{fontWeight:700, fontSize:12,
                                     color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429':'#f87171'}}>
                                     {pts>0?`+${pts} pkt`:'✗ 0 pkt'}
                                   </span>
-                                : <span style={{marginLeft:6, fontWeight:600, fontSize:11, color:'#4a5568'}}>
-                                    (brak typowania)
-                                  </span>
+                                : <span style={{fontSize:11, color:'#4a5568'}}>(brak typowania)</span>
                               }
-                            </span>
+                            </div>
                           )}
                         </div>
                         <span style={{textAlign:'left',fontSize:14,color:filled?'#e2e8f0':mdLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
