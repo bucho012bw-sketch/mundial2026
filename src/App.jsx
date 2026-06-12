@@ -83,6 +83,20 @@ function LockBadge({ lockTime }) {
   )
 }
 
+function KnockoutDeadlineBanner() {
+  const locked = new Date() >= KNOCKOUT_LOCK_UTC
+  if (locked) return (
+    <div style={{background:'#2a0a0a', border:'1px solid #f87171', borderRadius:8, padding:'10px 16px', marginBottom:16, fontSize:13, color:'#f87171'}}>
+      🔒 Typowanie zostało zablokowane — termin minął ({formatLockTime(KNOCKOUT_LOCK_UTC)}).
+    </div>
+  )
+  return (
+    <div style={{background:'#0d1f0d', border:'1px solid #4ade80', borderRadius:8, padding:'10px 16px', marginBottom:16, fontSize:13, color:'#4ade80'}}>
+      ⏰ Typowanie możliwe do: <strong>{formatLockTime(KNOCKOUT_LOCK_UTC)}</strong>
+    </div>
+  )
+}
+
 function ScoreInput({ val, onChange, locked }) {
   return (
     <input
@@ -1028,6 +1042,7 @@ export default function App() {
 
         {/* ── KROK 1: ZWYCIĘZCY GRUP ────────────────────────────────────── */}
         {step === 1 && (<>
+          <KnockoutDeadlineBanner/>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:16}}>
             <h3 style={{margin:0}}>🏆 Kto wygra każdą grupę?</h3>
             <span style={{...C.muted, fontSize:13}}>{doneCount}/12{doneCount===12&&<span style={C.gold}> ✓</span>}</span>
@@ -1066,6 +1081,7 @@ export default function App() {
 
         {/* ── KROK 2: FAZA PUCHAROWA ────────────────────────────────────── */}
         {step === 2 && (<>
+          <KnockoutDeadlineBanner/>
           <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
             <h3 style={{margin:0}}>⚔️ Faza pucharowa</h3>
             <LockBadge lockTime={KNOCKOUT_LOCK_UTC}/>
@@ -1105,6 +1121,7 @@ export default function App() {
 
         {/* ── KROK 3: MISTRZ ────────────────────────────────────────────── */}
         {step === 3 && (<>
+          <KnockoutDeadlineBanner/>
           <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
             <h3 style={{margin:0}}>🥇 Mistrz Świata 2026</h3>
             <LockBadge lockTime={KNOCKOUT_LOCK_UTC}/>

@@ -33,8 +33,8 @@ export const GROUP_LOCK_UTC = {
 }
 
 // Typowania fazowe (półfinały, finaliści, mistrz, top strzelec)
-// Blokada = start Rundy 32 = 28 czerwca 2026 00:00 UTC
-export const KNOCKOUT_LOCK_UTC = new Date('2026-06-28T00:00:00Z')
+// Blokada = 12 czerwca 2026 20:00 CET (18:00 UTC)
+export const KNOCKOUT_LOCK_UTC = new Date('2026-06-12T18:00:00Z')
 
 // ─── DANE TURNIEJU ─────────────────────────────────────────────────────────────
 export const GROUPS = {
