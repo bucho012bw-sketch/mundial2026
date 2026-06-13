@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import {
-  GROUPS, FLAGS, FLAG_CODES, GROUP_LETTERS, ALL_TEAMS,
+  GROUPS, FLAGS, FLAG_CODES, SHORT_NAMES, GROUP_LETTERS, ALL_TEAMS,
   SCORING_MATCHES, SCORING_BONUS,
   EMPTY_PRED, EMPTY_RESULTS, MATCHES, matchKey,
   GROUP_LOCK_UTC, KNOCKOUT_LOCK_UTC,
@@ -762,10 +762,10 @@ export default function App() {
           <table style={{borderCollapse:'collapse', fontSize:12, minWidth:'100%'}}>
             <thead>
               <tr style={{background:'#111820'}}>
-                <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:'#111820', zIndex:2}}>Mecz</th>
-                <th style={{padding:'8px 8px', textAlign:'center', color:'#6b7a8d', whiteSpace:'nowrap'}}>Wynik</th>
+                <th style={{padding:'6px 8px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:'#111820', zIndex:2}}>Mecz</th>
+                <th style={{padding:'6px 6px', textAlign:'center', color:'#6b7a8d', whiteSpace:'nowrap', fontSize:11}}>Wynik</th>
                 {scoredPreds.map(p => (
-                  <th key={p.username} style={{padding:'8px 6px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis'}}>
+                  <th key={p.username} style={{padding:'6px 5px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap', maxWidth:70, overflow:'hidden', textOverflow:'ellipsis', fontSize:11}}>
                     {p.username===username?'👤 ':''}{displayName(p.username)}
                   </th>
                 ))}
@@ -777,11 +777,13 @@ export default function App() {
                 const hasResult = actual?.h !== '' && actual?.a !== ''
                 return (
                   <tr key={m.key} style={{borderTop:'1px solid #1e2d3d'}}>
-                    <td style={{padding:'7px 10px', whiteSpace:'nowrap', position:'sticky', left:0, background:'#161d27', zIndex:1}}>
-                      <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:10,borderRadius:3,padding:'1px 5px',marginRight:5}}>{m.group}</span>
-                      <Flag team={m.home} size={14}/><span style={{color:'#bcc6d4'}}>{m.home}</span>
-                      <span style={{color:'#4a5568', margin:'0 4px'}}>vs</span>
-                      <Flag team={m.away} size={14}/><span style={{color:'#bcc6d4'}}>{m.away}</span>
+                    <td style={{padding:'5px 8px', whiteSpace:'nowrap', position:'sticky', left:0, background:'#161d27', zIndex:1}}>
+                      <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:9,borderRadius:3,padding:'1px 4px',marginRight:4}}>{m.group}</span>
+                      <Flag team={m.home} size={18}/>
+                      <span style={{color:'#bcc6d4', fontSize:11, fontWeight:600, marginRight:4}}>{SHORT_NAMES[m.home]||m.home}</span>
+                      <span style={{color:'#4a5568', fontSize:10, marginRight:4}}>-</span>
+                      <Flag team={m.away} size={18}/>
+                      <span style={{color:'#bcc6d4', fontSize:11, fontWeight:600}}>{SHORT_NAMES[m.away]||m.away}</span>
                     </td>
                     <td style={{padding:'7px 8px', textAlign:'center', fontWeight:700, color: hasResult?'#4ade80':'#4a5568', whiteSpace:'nowrap'}}>
                       {hasResult ? `${actual.h}:${actual.a}` : '—'}

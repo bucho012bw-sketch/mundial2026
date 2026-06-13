@@ -121,6 +121,21 @@ export const FLAG_CODES = {
   Anglia: 'gb-eng', Chorwacja: 'hr', Ghana: 'gh', Panama: 'pa',
 }
 
+export const SHORT_NAMES = {
+  Meksyk:'MEX', RPA:'RPA', 'Korea Płd.':'KOR', Czechy:'CZE',
+  Kanada:'KAN', 'Bośnia i Herc.':'BIH', Katar:'QAT', Szwajcaria:'SUI',
+  Brazylia:'BRA', Maroko:'MAR', Haiti:'HAI', Szkocja:'SCO',
+  USA:'USA', Paragwaj:'PAR', Australia:'AUS', Turcja:'TUR',
+  Niemcy:'GER', Curaçao:'CUW', 'Wybrzeże K.Śł.':'CIV', Ekwador:'ECU',
+  Holandia:'NED', Japonia:'JPN', Szwecja:'SWE', Tunezja:'TUN',
+  Belgia:'BEL', Egipt:'EGY', Iran:'IRN', 'Nowa Zelandia':'NZL',
+  Hiszpania:'ESP', 'Cabo Verde':'CPV', 'Arabia Saud.':'KSA', Urugwaj:'URU',
+  Francja:'FRA', Senegal:'SEN', Irak:'IRQ', Norwegia:'NOR',
+  Argentyna:'ARG', Algieria:'ALG', Austria:'AUT', Jordania:'JOR',
+  Portugalia:'POR', 'DR Kongo':'COD', Uzbekistan:'UZB', Kolumbia:'COL',
+  Anglia:'ENG', Chorwacja:'CRO', Ghana:'GHA', Panama:'PAN',
+}
+
 export const GROUP_LETTERS = Object.keys(GROUPS)
 export const ALL_TEAMS = [...new Set(Object.values(GROUPS).flat())].sort()
 
