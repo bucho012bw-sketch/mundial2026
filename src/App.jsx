@@ -1237,6 +1237,38 @@ export default function App() {
 
         </>)}
 
+        {/* ── LEGENDA ─────────────────────────────────────────── */}
+        <div style={{marginTop:20, background:'#0c1219', border:'1px solid #1a2535', borderRadius:10, padding:'12px 16px'}}>
+          <div style={{color:'#4a5568', fontSize:11, fontWeight:700, marginBottom:10, letterSpacing:1}}>LEGENDA KOLUMN</div>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:'7px 20px'}}>
+            {[
+              ['⚽ Mecze',     'Punkty za typowane wyniki meczów grupowych (maks. 72 × 4 = 288 pkt)'],
+              ['🏆 Bonus',     'Punkty za zwycięzców grup, półfinalistów, finalistów, mistrza i top strzelca'],
+              ['Razem',        'Łączna suma punktów – główna kolumna rankingu'],
+              ['max+',         'Ile pkt MOŻESZ jeszcze zdobyć z już wpisanych typowań (optymistyczny potencjał)'],
+              ['K1 / K2 / K3', 'Punkty zdobyte w kolejce 1, 2 i 3 fazy grupowej'],
+              ['🔒 A – L',     'Typowany zwycięzca danej grupy; 🔒 = blokada minęła, ? = jeszcze ukryte'],
+              ['⚔️',           'Typowani półfinaliści (4 drużyny) — ujawniane po zakończeniu fazy grupowej'],
+              ['🏆 (ostatnia)','Typowany Mistrz Świata'],
+            ].map(([col, desc]) => (
+              <div key={col} style={{display:'flex', gap:8, alignItems:'baseline'}}>
+                <span style={{color:'#d4a017', fontWeight:700, fontSize:11, whiteSpace:'nowrap', flexShrink:0}}>{col}</span>
+                <span style={{color:'#3a4a5a', fontSize:11, lineHeight:1.4}}>{desc}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:10, paddingTop:10, borderTop:'1px solid #141c28', display:'flex', flexWrap:'wrap', gap:12}}>
+            {[['4 pkt','dokładny wynik'], ['3 pkt','różnica bramek'], ['2 pkt','prawidłowy typ (W/R/P)'], ['0 pkt','błędny typ']].map(([pts, label]) => (
+              <span key={pts} style={{fontSize:11, color:'#3a4a5a'}}>
+                <span style={{
+                  fontWeight:800, marginRight:4,
+                  color: pts==='4 pkt'?'#4ade80':pts==='3 pkt'?'#67d7f5':pts==='2 pkt'?'#f0b429':'#f87171'
+                }}>{pts}</span>{label}
+              </span>
+            ))}
+          </div>
+        </div>
+
         <p style={{...C.muted, fontSize:11, textAlign:'center', marginTop:16}}>
           Finał: MetLife Stadium, New Jersey · 19 lipca 2026 · Punkty naliczane na bieżąco po każdym meczu
         </p>
