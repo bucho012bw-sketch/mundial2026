@@ -14,6 +14,7 @@ const ADMIN_PIN    = import.meta.env.VITE_ADMIN_PIN || '1234'
 
 const USER_EMOJIS = {
   'Magdalena': '🐱',
+  'kris312': '🚌',
 }
 const displayName = (name) => USER_EMOJIS[name] ? `${USER_EMOJIS[name]} ${name}` : name
 
