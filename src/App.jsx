@@ -11,6 +11,11 @@ import {
 
 const ADMIN_PIN    = import.meta.env.VITE_ADMIN_PIN || '1234'
 
+const USER_EMOJIS = {
+  'Magdalena': '🐱',
+}
+const displayName = (name) => USER_EMOJIS[name] ? `${USER_EMOJIS[name]} ${name}` : name
+
 // Mapowanie angielskich nazw API → polskich nazw w aplikacji
 const EN_TO_PL = {
   // Grupa A
@@ -225,7 +230,7 @@ function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
         <h2 style={{...C.gold, margin:0, fontSize:17}}>⚽ Mundial 2026 · Typer</h2>
         {username && (
           <p style={{...C.muted, margin:0, fontSize:11}}>
-            Cześć, <strong style={{color:'#d4a017'}}>{username}</strong>
+            Cześć, <strong style={{color:'#d4a017'}}>{displayName(username)}</strong>
             {saved ? ' · ✅ Zapisano' : ''}
           </p>
         )}
@@ -757,7 +762,7 @@ export default function App() {
                 <th style={{padding:'8px 8px', textAlign:'center', color:'#6b7a8d', whiteSpace:'nowrap'}}>Wynik</th>
                 {scoredPreds.map(p => (
                   <th key={p.username} style={{padding:'8px 6px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis'}}>
-                    {p.username===username?'👤 ':''}{p.username}
+                    {p.username===username?'👤 ':''}{displayName(p.username)}
                   </th>
                 ))}
               </tr>
@@ -876,7 +881,7 @@ export default function App() {
               <th style={{padding:'8px 8px', textAlign:'center', color:'#4ade80', whiteSpace:'nowrap'}}>Wynik</th>
               {scoredPreds.map(p => (
                 <th key={p.username} style={{padding:'8px 6px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
-                  {p.username===username?'👤 ':''}{p.username}
+                  {p.username===username?'👤 ':''}{displayName(p.username)}
                 </th>
               ))}
             </tr>
@@ -1002,7 +1007,7 @@ export default function App() {
                           {i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`}
                         </td>
                         <td style={{padding:'10px 12px', fontWeight:700, whiteSpace:'nowrap', color: isMe?'#d4a017':'#e2e8f0'}}>
-                          {isMe?'👤 ':''}{p.username}
+                          {isMe?'👤 ':''}{displayName(p.username)}
                           <div style={{...C.muted, fontSize:10, fontWeight:400}}>
                             {p.updated_at ? new Date(p.updated_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}
                           </div>
@@ -1105,7 +1110,7 @@ export default function App() {
                       return (
                         <tr key={p.username} style={{borderTop:'1px solid #1e2d3d', background: isMe?'rgba(212,160,23,0.05)':'transparent'}}>
                           <td style={{padding:'7px 10px', position:'sticky', left:0, background: isMe?'rgba(212,160,23,0.05)':'#161d27', zIndex:1, fontWeight:700, color: isMe?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
-                            {isMe?'👤 ':''}{p.username}
+                            {isMe?'👤 ':''}{displayName(p.username)}
                           </td>
                           {[0,1,2,3].map(i => {
                             if (!visible) return <td key={i} style={{padding:'6px', textAlign:'center'}}><span style={{color:'#2a3f55'}}>🔒</span></td>
@@ -1152,7 +1157,7 @@ export default function App() {
                       <th style={{padding:'8px 10px', textAlign:'center', color:'#4ade80'}}>Wynik</th>
                       {scoredPreds.map(p => (
                         <th key={p.username} style={{padding:'8px 8px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
-                          {p.username===username?'👤 ':''}{p.username}
+                          {p.username===username?'👤 ':''}{displayName(p.username)}
                         </th>
                       ))}
                     </tr>
