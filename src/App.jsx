@@ -1602,7 +1602,10 @@ export default function App() {
                     {s !== null && <span style={{ fontSize: 14, fontWeight: 900, color: won ? '#4ade80' : '#6b7a8d', minWidth: 16, textAlign: 'right' }}>{s}</span>}
                   </>
                 ) : (
-                  <span style={{ fontSize: 10, color: '#1e2d3d' }}>TBD</span>
+                  <>
+                    <span style={{ display:'inline-block', width:14, height:10, background:'#1a2535', border:'1px solid #1e2d3d', borderRadius:2, flexShrink:0 }}/>
+                    <span style={{ fontSize:10, color:'#253040', flex:1 }}>—</span>
+                  </>
                 )}
               </div>
             )
