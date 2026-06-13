@@ -1542,54 +1542,88 @@ export default function App() {
       )
     }
 
-    const KnockoutRound = ({ label, date, matches }) => (
-      <div style={{marginBottom:20}}>
-        <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10}}>
-          <span style={{...C.gold, fontWeight:800, fontSize:14}}>{label}</span>
-          <span style={{...C.muted, fontSize:12}}>{date}</span>
-        </div>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:8}}>
-          {matches.map((pair, i) => {
-            const played = pair.score != null
+    // ── Bracket constants ──────────────────────────────────────────────────────
+    const KO_SLOT = 72   // base slot height for 1 R32 match
+    const KO_CH   = 58   // card height
+    const KO_CW   = 192  // card width
+    const KO_GAP  = 40   // connector area between columns
+    const KO_STEP = KO_CW + KO_GAP
+
+    const koY = (r, i) => {
+      const slotH = KO_SLOT * Math.pow(2, r)
+      return i * slotH + (slotH - KO_CH) / 2
+    }
+    const koX = (r) => r * KO_STEP
+    const koTotalH = 16 * KO_SLOT
+    const koTotalW = 5 * KO_STEP - KO_GAP
+
+    const koRoundsData = [
+      { label: '1/16 FINAŁU',   date: '28 cze – 3 lip', matches: Array(16).fill({ home: null, away: null, score: null }) },
+      { label: '1/8 FINAŁU',    date: '4 – 7 lip',      matches: Array(8).fill({ home: null, away: null, score: null }) },
+      { label: 'ĆWIERĆFINAŁY',  date: '9 – 12 lip',     matches: Array(4).fill({ home: null, away: null, score: null }) },
+      { label: 'PÓŁFINAŁY',     date: '14 – 15 lip',    matches: [
+        { home: results.semifinalists?.[0]||null, away: results.semifinalists?.[1]||null, score: null },
+        { home: results.semifinalists?.[2]||null, away: results.semifinalists?.[3]||null, score: null },
+      ]},
+      { label: 'FINAŁ',         date: '19 lip · MetLife', matches: [
+        { home: results.finalist1||null, away: results.finalist2||null, score: null },
+      ]},
+    ]
+
+    const BracketCard = ({ match, r, i }) => {
+      const { home, away, score } = match
+      const played = score != null && score.h != null && score.a != null
+      const isFinal = r === 4
+      return (
+        <div style={{
+          position: 'absolute', left: koX(r), top: koY(r, i),
+          width: KO_CW, height: KO_CH,
+          background: played ? '#0d1a0d' : home || away ? '#161d27' : '#10161f',
+          border: `1px solid ${played ? '#2a4020' : home || away ? '#253647' : '#141c28'}`,
+          borderRadius: 8, overflow: 'hidden',
+          boxShadow: isFinal ? '0 0 0 1px #d4a017' : 'none',
+        }}>
+          {[{ team: home, side: 'h' }, { team: away, side: 'a' }].map(({ team, side }, ti) => {
+            const s = played ? score[side] : null
+            const won = played && ((side === 'h' && +score.h > +score.a) || (side === 'a' && +score.a > +score.h))
             return (
-              <div key={i} style={{
-                background: played ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${played ? 'rgba(74,222,128,0.2)' : '#1e2d3d'}`,
-                borderRadius:10, padding:'12px 14px',
+              <div key={ti} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '0 8px', height: KO_CH / 2,
+                borderBottom: ti === 0 ? '1px solid #0d1520' : 'none',
+                background: won ? 'rgba(74,222,128,0.1)' : 'transparent',
               }}>
-                <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:6}}>
-                  <div style={{textAlign:'right', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:5}}>
-                    {pair.home ? <><span style={{fontSize:12, fontWeight:700, color:'#e2e8f0'}}>{pair.home}</span><Flag team={pair.home} size={20}/></> : <span style={{color:'#2a3f55', fontSize:12}}>TBD</span>}
-                  </div>
-                  <div style={{textAlign:'center', minWidth:70}}>
-                    {played
-                      ? <span style={{fontSize:18, fontWeight:900, color:'#4ade80'}}>{pair.score}</span>
-                      : pair.home && pair.away
-                      ? <span style={{fontSize:12, color:'#4a5568'}}>vs</span>
-                      : <span style={{fontSize:18, color:'#2a3f55'}}>-</span>
-                    }
-                  </div>
-                  <div style={{textAlign:'left', display:'flex', alignItems:'center', gap:5}}>
-                    {pair.away ? <><Flag team={pair.away} size={20}/><span style={{fontSize:12, fontWeight:700, color:'#e2e8f0'}}>{pair.away}</span></> : <span style={{color:'#2a3f55', fontSize:12}}>TBD</span>}
-                  </div>
-                </div>
+                {team ? (
+                  <>
+                    <Flag team={team} size={14}/>
+                    <span style={{ fontSize: 11, fontWeight: won ? 700 : 500, color: won ? '#e2e8f0' : '#8899aa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {SHORT_NAMES[team] || team}
+                    </span>
+                    {s !== null && <span style={{ fontSize: 14, fontWeight: 900, color: won ? '#4ade80' : '#6b7a8d', minWidth: 16, textAlign: 'right' }}>{s}</span>}
+                  </>
+                ) : (
+                  <span style={{ fontSize: 10, color: '#1e2d3d' }}>TBD</span>
+                )}
               </div>
             )
           })}
         </div>
-      </div>
-    )
+      )
+    }
 
-    const sfPairs = results.semifinalists?.filter(Boolean).length >= 2
-      ? [
-          { home: results.semifinalists?.[0]||null, away: results.semifinalists?.[1]||null, score: null },
-          { home: results.semifinalists?.[2]||null, away: results.semifinalists?.[3]||null, score: null },
-        ]
-      : [{ home:null, away:null, score:null }, { home:null, away:null, score:null }]
-
-    const finalPair = results.finalist1 || results.finalist2
-      ? [{ home: results.finalist1||null, away: results.finalist2||null, score: results.winner ? `${results.winner === results.finalist1 ? '?' : '?'}` : null }]
-      : [{ home:null, away:null, score:null }]
+    const koConnectors = []
+    for (let r = 0; r < 4; r++) {
+      const count = koRoundsData[r].matches.length
+      for (let i = 0; i < count; i += 2) {
+        const midX = koX(r) + KO_CW + KO_GAP / 2
+        koConnectors.push({
+          x1: koX(r) + KO_CW, midX, x2: koX(r + 1),
+          y1: koY(r, i) + KO_CH / 2,
+          y2: koY(r, i + 1) + KO_CH / 2,
+          yn: koY(r + 1, i / 2) + KO_CH / 2,
+        })
+      }
+    }
 
     return (
       <div style={C.page}>
@@ -1708,40 +1742,60 @@ export default function App() {
             </div>
           )}
 
-          {/* ── FAZA PUCHAROWA ── */}
+          {/* ── FAZA PUCHAROWA — BRACKET ── */}
           {schedTab === 'knockout' && (
-            <div>
-              <KnockoutRound
-                label="1/16 finału — Runda 32"
-                date="28 cze – 4 lip 2026"
-                matches={Array(16).fill({home:null,away:null,score:null})}
-              />
-              <KnockoutRound
-                label="1/8 finału — Runda 16"
-                date="4–7 lip 2026"
-                matches={Array(8).fill({home:null,away:null,score:null})}
-              />
-              <KnockoutRound
-                label="Ćwierćfinały"
-                date="9–12 lip 2026"
-                matches={Array(4).fill({home:null,away:null,score:null})}
-              />
-              <KnockoutRound
-                label="Półfinały"
-                date="14–15 lip 2026"
-                matches={sfPairs}
-              />
-              <KnockoutRound
-                label="Finał"
-                date="19 lip 2026 · MetLife Stadium"
-                matches={finalPair}
-              />
+            <div style={{ overflowX: 'auto', paddingBottom: 24 }}>
+              {/* Nagłówki rund */}
+              <div style={{ display: 'flex', marginBottom: 14, minWidth: koTotalW }}>
+                {koRoundsData.map((round, r) => (
+                  <div key={r} style={{ width: r < 4 ? KO_STEP : KO_CW, flexShrink: 0 }}>
+                    <div style={{ color: '#d4a017', fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>{round.label}</div>
+                    <div style={{ color: '#4a5568', fontSize: 10, marginTop: 2 }}>{round.date}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Drabinka */}
+              <div style={{ position: 'relative', width: koTotalW, height: koTotalH }}>
+                <svg style={{ position: 'absolute', top: 0, left: 0, width: koTotalW, height: koTotalH, overflow: 'visible', pointerEvents: 'none' }}>
+                  {koConnectors.map((c, ci) => (
+                    <g key={ci}>
+                      <line x1={c.x1} y1={c.y1} x2={c.midX} y2={c.y1} stroke="#1e2d3d" strokeWidth="1.5"/>
+                      <line x1={c.x1} y1={c.y2} x2={c.midX} y2={c.y2} stroke="#1e2d3d" strokeWidth="1.5"/>
+                      <line x1={c.midX} y1={c.y1} x2={c.midX} y2={c.y2} stroke="#1e2d3d" strokeWidth="1.5"/>
+                      <line x1={c.midX} y1={c.yn} x2={c.x2} y2={c.yn} stroke="#1e2d3d" strokeWidth="1.5"/>
+                    </g>
+                  ))}
+                </svg>
+                {koRoundsData.map((round, r) =>
+                  round.matches.map((match, i) => (
+                    <BracketCard key={`${r}-${i}`} match={match} r={r} i={i}/>
+                  ))
+                )}
+              </div>
+
+              {/* Mecz o 3. miejsce */}
+              <div style={{ marginTop: 28 }}>
+                <div style={{ color: '#6b7a8d', fontWeight: 700, fontSize: 11, marginBottom: 6 }}>MECZ O 3. MIEJSCE &nbsp;·&nbsp; 18 lip · Miami Gardens</div>
+                <div style={{ width: KO_CW, background: '#10161f', border: '1px solid #141c28', borderRadius: 8, overflow: 'hidden', height: KO_CH }}>
+                  {[0, 1].map(ti => (
+                    <div key={ti} style={{ display: 'flex', alignItems: 'center', padding: '0 8px', height: KO_CH / 2, borderBottom: ti === 0 ? '1px solid #0d1520' : 'none' }}>
+                      <span style={{ fontSize: 10, color: '#1e2d3d' }}>TBD</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mistrz */}
               {results.winner && (
-                <div style={{...C.card({border:'2px solid #d4a017', background:'rgba(212,160,23,0.08)'}), textAlign:'center', padding:'24px'}}>
-                  <div style={{...C.muted, fontSize:13, marginBottom:8}}>🏆 Mistrz Świata 2026</div>
-                  <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:12}}>
-                    <Flag team={results.winner} size={48}/>
-                    <span style={{...C.gold, fontSize:28, fontWeight:900}}>{results.winner}</span>
+                <div style={{ marginTop: 24, background: 'rgba(212,160,23,0.08)', border: '2px solid #d4a017', borderRadius: 12, padding: '16px 24px', display: 'inline-flex', alignItems: 'center', gap: 16 }}>
+                  <span style={{ fontSize: 32 }}>🏆</span>
+                  <div>
+                    <div style={{ color: '#6b7a8d', fontSize: 11, marginBottom: 4 }}>Mistrz Świata 2026</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Flag team={results.winner} size={28}/>
+                      <span style={{ color: '#f0b429', fontWeight: 900, fontSize: 20 }}>{results.winner}</span>
+                    </div>
                   </div>
                 </div>
               )}
