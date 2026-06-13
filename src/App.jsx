@@ -1723,16 +1723,110 @@ export default function App() {
           </div>
 
           {/* Główne zakładki */}
-          <div style={{display:'flex', gap:6, marginBottom:20}}>
-            {[['group','⚽ Faza grupowa'],['knockout','⚔️ Faza pucharowa']].map(([id,lab]) => (
+          <div style={{display:'flex', gap:6, marginBottom:20, flexWrap:'wrap'}}>
+            {[['upcoming','⏰ Najbliższe mecze'],['group','⚽ Faza grupowa'],['knockout','⚔️ Faza pucharowa']].map(([id,lab]) => (
               <button key={id} onClick={()=>setSchedTab(id)} style={{
                 padding:'10px 20px', borderRadius:8, fontWeight:700, fontSize:14, cursor:'pointer',
-                background: schedTab===id ? '#d4a017' : '#161d27',
-                color: schedTab===id ? '#000' : '#6b7a8d',
+                background: schedTab===id ? '#d4a017' : C.p.card2,
+                color: schedTab===id ? '#000' : C.p.muted,
                 border: `1px solid ${schedTab===id ? '#d4a017' : C.p.border}`,
               }}>{lab}</button>
             ))}
           </div>
+
+          {/* ── NAJBLIŻSZE MECZE ── */}
+          {schedTab === 'upcoming' && (() => {
+            const now = new Date()
+            const window24 = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+            const recentCutoff = new Date(now.getTime() - 3 * 60 * 60 * 1000)
+            const upcoming = GROUP_LETTERS.flatMap(g =>
+              MATCHES[g].map(m => {
+                const kickoff = getMatchKickoff(g, m)
+                const key = matchKey(g, m)
+                const score = results.matchScores?.[key]
+                const played = score?.h !== '' && score?.a !== ''
+                return { g, m, kickoff, key, score, played }
+              })
+            )
+            .filter(({ kickoff, played }) =>
+              (kickoff >= recentCutoff && kickoff <= window24) || (played && kickoff >= recentCutoff)
+            )
+            .sort((a, b) => a.kickoff - b.kickoff)
+
+            const finished = upcoming.filter(x => x.played)
+            const live = upcoming.filter(x => !x.played && x.kickoff <= now)
+            const coming = upcoming.filter(x => !x.played && x.kickoff > now)
+
+            const UpcomingCard = ({ g, m, kickoff, score, played }) => {
+              const isLive = !played && kickoff <= now
+              const dateStr = kickoff.toLocaleString('pl-PL', { weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', timeZone:'Europe/Warsaw' })
+              return (
+                <div style={{
+                  background: played ? C.p.greenBg : isLive ? 'rgba(240,180,41,0.08)' : C.p.card,
+                  border: `1px solid ${played ? C.p.green+'44' : isLive ? '#f0b429aa' : C.p.border}`,
+                  borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12,
+                  boxShadow: C.p._light ? '0 1px 6px rgba(0,20,60,0.1)' : 'none',
+                }}>
+                  {/* Czas + Grupa */}
+                  <div style={{minWidth: 90, flexShrink: 0, textAlign: 'center'}}>
+                    <div style={{fontSize: 11, fontWeight: 800, color: C.p.gold, letterSpacing: 0.5}}>
+                      GR {g} · K{m.matchday}
+                    </div>
+                    <div style={{fontSize: 12, color: C.p.muted, marginTop: 2}}>{dateStr}</div>
+                    <div style={{marginTop: 4}}>
+                      {played
+                        ? <span style={{fontSize: 10, fontWeight: 700, color: C.p.green, background: C.p.greenBg, borderRadius: 4, padding: '1px 6px'}}>✅ Zakończony</span>
+                        : isLive
+                          ? <span style={{fontSize: 10, fontWeight: 700, color: '#f0b429', background: 'rgba(240,180,41,0.15)', borderRadius: 4, padding: '1px 6px'}}>🔴 W trakcie</span>
+                          : <span style={{fontSize: 10, fontWeight: 700, color: C.p.sky, background: 'rgba(103,215,245,0.1)', borderRadius: 4, padding: '1px 6px'}}>⏳ Nadchodzący</span>
+                      }
+                    </div>
+                  </div>
+                  {/* Mecz */}
+                  <div style={{flex: 1, display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8}}>
+                    <div style={{textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8}}>
+                      <span style={{fontSize: 15, fontWeight: 700, color: C.p.text}}>{m.home}</span>
+                      <Flag team={m.home} size={26}/>
+                    </div>
+                    <div style={{textAlign: 'center', minWidth: 80}}>
+                      {played
+                        ? <span style={{fontSize: 26, fontWeight: 900, color: C.p.green, letterSpacing: 3}}>{score.h}:{score.a}</span>
+                        : <span style={{fontSize: 16, color: C.p.dim, fontWeight: 700}}>vs</span>
+                      }
+                    </div>
+                    <div style={{textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8}}>
+                      <Flag team={m.away} size={26}/>
+                      <span style={{fontSize: 15, fontWeight: 700, color: C.p.text}}>{m.away}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            if (upcoming.length === 0) return (
+              <div style={{...C.card(), textAlign: 'center', padding: 40}}>
+                <div style={{fontSize: 32, marginBottom: 12}}>📭</div>
+                <div style={{color: C.p.muted, fontSize: 15}}>Brak meczów w najbliższych 24 godzinach</div>
+              </div>
+            )
+
+            return (
+              <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+                {live.length > 0 && <>
+                  <div style={{fontSize: 11, fontWeight: 800, color: '#f0b429', letterSpacing: 1, marginTop: 4, marginBottom: 2}}>🔴 TRWAJĄCE</div>
+                  {live.map(x => <UpcomingCard key={x.key} {...x}/>)}
+                </>}
+                {coming.length > 0 && <>
+                  <div style={{fontSize: 11, fontWeight: 800, color: C.p.sky, letterSpacing: 1, marginTop: live.length ? 16 : 4, marginBottom: 2}}>⏳ NADCHODZĄCE (następne 24 h)</div>
+                  {coming.map(x => <UpcomingCard key={x.key} {...x}/>)}
+                </>}
+                {finished.length > 0 && <>
+                  <div style={{fontSize: 11, fontWeight: 800, color: C.p.green, letterSpacing: 1, marginTop: (live.length || coming.length) ? 16 : 4, marginBottom: 2}}>✅ ZAKOŃCZONE (ostatnie 3 h)</div>
+                  {finished.map(x => <UpcomingCard key={x.key} {...x}/>)}
+                </>}
+              </div>
+            )
+          })()}
 
           {/* ── FAZA GRUPOWA ── */}
           {schedTab === 'group' && (
