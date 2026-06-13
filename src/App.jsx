@@ -1035,11 +1035,16 @@ export default function App() {
                           </td>
                         ))}
                         {GROUP_LETTERS.map(g => {
+                          const groupStarted = isGroupLocked(g)
                           const t = p.data?.groupWinners?.[g]
                           const correct = results.groupWinners?.[g] && t === results.groupWinners[g]
                           return (
                             <td key={g} style={{padding:'8px 3px', textAlign:'center'}}>
-                              {t ? (
+                              {!groupStarted ? (
+                                t
+                                  ? <span style={{color:'#2a3f55', fontSize:14, fontWeight:700}}>?</span>
+                                  : <span style={{color:'#2a3f55'}}>—</span>
+                              ) : t ? (
                                 <span style={{opacity: correct?1:0.5, display:'inline-flex', flexDirection:'column', alignItems:'center', gap:1}}>
                                   <Flag team={t} size={16}/>
                                   <span style={{fontSize:8, color: correct?'#4ade80':'#6b7a8d', maxWidth:32, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t}</span>
