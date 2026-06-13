@@ -246,9 +246,9 @@ function Tip({ text, children }) {
       <span data-tip style={{
         position:'absolute', top:'calc(100% + 6px)', left:'50%',
         transform:'translateX(-50%)',
-        background:'#1a2535', color:C.p.text, fontSize:11, fontWeight:500,
+        background:'#1a2535', color:'#e8edf0', fontSize:11, fontWeight:500,
         padding:'5px 10px', borderRadius:6, whiteSpace:'nowrap',
-        border:`1px solid ${C.p.border2}`, pointerEvents:'none',
+        border:'1px solid #2a3f55', pointerEvents:'none',
         opacity:0, transition:'opacity 0.15s', zIndex:999,
       }}>
         <span style={{
@@ -847,7 +847,7 @@ export default function App() {
                 <th style={{padding:'6px 8px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card2, zIndex:2}}>Mecz</th>
                 <th style={{padding:'6px 6px', textAlign:'center', color:C.p.muted, whiteSpace:'nowrap', fontSize:11}}>Wynik</th>
                 {scoredPreds.map(p => (
-                  <th key={p.username} style={{padding:'6px 5px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap', maxWidth:70, overflow:'hidden', textOverflow:'ellipsis', fontSize:11}}>
+                  <th key={p.username} style={{padding:'6px 5px', textAlign:'center', color: p.username===username?C.p.gold:C.p.text, whiteSpace:'nowrap', maxWidth:70, overflow:'hidden', textOverflow:'ellipsis', fontSize:11}}>
                     {p.username===username?'👤 ':''}{displayName(p.username)}
                   </th>
                 ))}
@@ -968,7 +968,7 @@ export default function App() {
               <th style={{padding:'8px 8px', textAlign:'center', color:C.p.muted, whiteSpace:'nowrap'}}>Pkt</th>
               <th style={{padding:'8px 8px', textAlign:'center', color:'#4ade80', whiteSpace:'nowrap'}}>Wynik</th>
               {scoredPreds.map(p => (
-                <th key={p.username} style={{padding:'8px 6px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
+                <th key={p.username} style={{padding:'8px 6px', textAlign:'center', color: p.username===username?C.p.gold:C.p.text, whiteSpace:'nowrap'}}>
                   {p.username===username?'👤 ':''}{displayName(p.username)}
                 </th>
               ))}
@@ -996,7 +996,7 @@ export default function App() {
                       <td key={p.username} style={{padding:'6px', textAlign:'center',
                           background: correct===true?'rgba(74,222,128,0.15)':correct===false?'rgba(248,113,113,0.12)':'transparent'}}>
                         {val
-                          ? <span style={{color: correct===true?'#4ade80':correct===false?'#f87171':'#bcc6d4', fontWeight:600, fontSize:11}}>
+                          ? <span style={{color: correct===true?C.p.green:correct===false?C.p.red:C.p.text2, fontWeight:600, fontSize:11}}>
                               {val}{correct===true?' ✓':correct===false?' ✗':''}
                             </span>
                           : <span style={{color:C.p.border2}}>—</span>
@@ -1094,7 +1094,7 @@ export default function App() {
                         <td style={{padding:'10px 16px', fontWeight:800, color: i===0?'#f0b429':i===1?'#aab4be':i===2?'#cd7f32':'#6b7a8d', fontSize:15}}>
                           {i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`}
                         </td>
-                        <td style={{padding:'10px 12px', fontWeight:700, whiteSpace:'nowrap', color: isMe?'#d4a017':'#e2e8f0'}}>
+                        <td style={{padding:'10px 12px', fontWeight:700, whiteSpace:'nowrap', color: isMe?C.p.gold:C.p.text}}>
                           {isMe?'👤 ':''}{displayName(p.username)}
                           <div style={{...C.muted, fontSize:10, fontWeight:400}}>
                             {p.updated_at ? new Date(p.updated_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}
@@ -1202,7 +1202,7 @@ export default function App() {
                       const visible = isMe || sfVisible
                       return (
                         <tr key={p.username} style={{borderTop:`1px solid ${C.p.border}`, background: isMe?'rgba(212,160,23,0.05)':'transparent'}}>
-                          <td style={{padding:'7px 10px', position:'sticky', left:0, background: isMe?'rgba(212,160,23,0.05)':'#161d27', zIndex:1, fontWeight:700, color: isMe?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
+                          <td style={{padding:'7px 10px', position:'sticky', left:0, background: isMe?'rgba(212,160,23,0.05)':C.p.card, zIndex:1, fontWeight:700, color: isMe?C.p.gold:C.p.text, whiteSpace:'nowrap'}}>
                             {isMe?'👤 ':''}{displayName(p.username)}
                           </td>
                           {[0,1,2,3].map(i => {
@@ -1212,7 +1212,7 @@ export default function App() {
                             const correct = sf && actualSFs.length > 0 ? actualSFs.includes(sf) : null
                             return (
                               <td key={i} style={{padding:'7px 10px', textAlign:'center', background: correct===true?'rgba(74,222,128,0.12)':correct===false?'rgba(248,113,113,0.08)':'transparent'}}>
-                                {sf ? <span style={{color: correct===true?'#4ade80':correct===false?'#f87171':'#bcc6d4', fontWeight:600}}>
+                                {sf ? <span style={{color: correct===true?C.p.green:correct===false?C.p.red:C.p.text2, fontWeight:600}}>
                                   <Flag team={sf} size={14}/> {sf}{correct===true?' ✓':correct===false?' ✗':''}
                                 </span> : <span style={{color:C.p.border2}}>—</span>}
                               </td>
@@ -1249,7 +1249,7 @@ export default function App() {
                       <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', position:'sticky', left:0, background:C.p.card2, zIndex:2}}>Pytanie</th>
                       <th style={{padding:'8px 10px', textAlign:'center', color:'#4ade80'}}>Wynik</th>
                       {scoredPreds.map(p => (
-                        <th key={p.username} style={{padding:'8px 8px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
+                        <th key={p.username} style={{padding:'8px 8px', textAlign:'center', color: p.username===username?C.p.gold:C.p.text, whiteSpace:'nowrap'}}>
                           {p.username===username?'👤 ':''}{displayName(p.username)}
                         </th>
                       ))}
@@ -1270,7 +1270,7 @@ export default function App() {
                           const correct = row.isCorrect(p.data)
                           return (
                             <td key={p.username} style={{padding:'7px 8px', textAlign:'center', background: correct===true?'rgba(74,222,128,0.12)':correct===false?'rgba(248,113,113,0.08)':'transparent'}}>
-                              {val ? <span style={{color: correct===true?'#4ade80':correct===false?'#f87171':'#bcc6d4', fontWeight:600}}>
+                              {val ? <span style={{color: correct===true?C.p.green:correct===false?C.p.red:C.p.text2, fontWeight:600}}>
                                 <Flag team={val} size={14}/> {val}{correct===true?' ✓':correct===false?' ✗':''}
                               </span> : <span style={{color:C.p.border2}}>—</span>}
                             </td>
@@ -1420,8 +1420,8 @@ export default function App() {
                 <button key={g} onClick={()=>setAdminGroup(g)} style={{
                   padding:'5px 13px', position:'relative',
                   background: adminGroup===g?'#d4a017':C.p.card2,
-                  color: adminGroup===g?'#000':'#e2e8f0',
-                  border:`1px solid ${adminGroup===g?'#d4a017':'#2a3f55'}`,
+                  color: adminGroup===g?'#000':C.p.text,
+                  border:`1px solid ${adminGroup===g?'#d4a017':C.p.border2}`,
                   borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:13,
                 }}>
                   {g}
@@ -1460,7 +1460,7 @@ export default function App() {
                       border: filled?'1px solid rgba(74,222,128,0.2)':'1px solid transparent',
                       borderRadius:8,
                     }}>
-                      <span style={{textAlign:'right', fontSize:14, color: filled?'#e2e8f0':'#bcc6d4', fontWeight:filled?600:400}}>
+                      <span style={{textAlign:'right', fontSize:14, color: filled?C.p.text:C.p.text2, fontWeight:filled?600:400}}>
                         <Flag team={m.home}/>{m.home}
                       </span>
                       <div style={{display:'flex', alignItems:'center', gap:5}}>
@@ -1468,7 +1468,7 @@ export default function App() {
                         <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
                         <ScoreInput val={score.a} onChange={v=>setResMatchScore(adminGroup,m,'a',v)} locked={false}/>
                       </div>
-                      <span style={{textAlign:'left', fontSize:14, color: filled?'#e2e8f0':'#bcc6d4', fontWeight:filled?600:400}}>
+                      <span style={{textAlign:'left', fontSize:14, color: filled?C.p.text:C.p.text2, fontWeight:filled?600:400}}>
                         <Flag team={m.away}/>{m.away}
                       </span>
                     </div>
@@ -1500,7 +1500,7 @@ export default function App() {
                     <input type="radio" name={`rg${g}`} checked={resultsDraft.groupWinners[g]===team}
                       onChange={() => setResGW(g, team)}
                       style={{accentColor:'#4ade80', width:16, height:16}}/>
-                    <span style={{color: resultsDraft.groupWinners[g]===team?'#4ade80':'#bcc6d4', fontSize:14}}>
+                    <span style={{color: resultsDraft.groupWinners[g]===team?C.p.green:C.p.text2, fontSize:14}}>
                       <Flag team={team}/>{team}
                     </span>
                   </label>
@@ -1680,7 +1680,7 @@ export default function App() {
                 {team ? (
                   <>
                     <Flag team={team} size={14}/>
-                    <span style={{ fontSize: 11, fontWeight: won ? 700 : 500, color: won ? '#e2e8f0' : '#8899aa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: won ? 700 : 500, color: won ? C.p.text : C.p.muted, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {SHORT_NAMES[team] || team}
                     </span>
                     {s !== null && <span style={{ fontSize: 14, fontWeight: 900, color: won ? '#4ade80' : '#6b7a8d', minWidth: 16, textAlign: 'right' }}>{s}</span>}
@@ -1758,7 +1758,7 @@ export default function App() {
                             {st.slice(0,2).map(t => (
                               <div key={t.name} style={{display:'flex', alignItems:'center', gap:3}}>
                                 <Flag team={t.name} size={12}/>
-                                <span style={{fontSize:10, color: schedGroup===g?'#e2e8f0':'#6b7a8d'}}>{SHORT_NAMES[t.name]||t.name}</span>
+                                <span style={{fontSize:10, color: schedGroup===g?C.p.text:C.p.muted}}>{SHORT_NAMES[t.name]||t.name}</span>
                                 <span style={{fontSize:10, color:'#d4a017', fontWeight:700}}>{t.pts}</span>
                               </div>
                             ))}
@@ -1795,7 +1795,7 @@ export default function App() {
                             <Flag team={t.name} size={18}/>{t.name}
                           </td>
                           {[t.mp,t.w,t.d,t.l,t.gf,t.ga].map((v,vi) => (
-                            <td key={vi} style={{padding:'8px 6px', textAlign:'center', color: vi===0?'#bcc6d4':'#6b7a8d'}}>{v}</td>
+                            <td key={vi} style={{padding:'8px 6px', textAlign:'center', color: vi===0?C.p.text2:C.p.muted}}>{v}</td>
                           ))}
                           <td style={{padding:'8px 6px', textAlign:'center', color: t.gd>0?'#4ade80':t.gd<0?'#f87171':'#6b7a8d', fontWeight:600}}>{t.gd>0?`+${t.gd}`:t.gd}</td>
                           <td style={{padding:'8px 8px', textAlign:'center', fontWeight:900, fontSize:15, color: t.pts>0?'#d4a017':'#4a5568'}}>{t.pts}</td>
@@ -1923,9 +1923,9 @@ export default function App() {
           ].map(({icon,label,ok},i) => (
             <button key={i} onClick={()=>setStep(i)} style={{
               flex:1, minWidth:0, padding:'10px 4px',
-              background: step===i?'#d4a017':ok?'#1a2e1a':'#161d27',
-              color: step===i?'#000':ok?'#4ade80':'#6b7a8d',
-              border:`1px solid ${step===i?'#d4a017':ok?'#2a4d2a':C.p.border}`,
+              background: step===i?'#d4a017':ok?C.p.greenBg:C.p.card2,
+              color: step===i?'#000':ok?C.p.green:C.p.muted,
+              border:`1px solid ${step===i?'#d4a017':ok?C.p.border2:C.p.border}`,
               borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:step===i?700:500,
             }}>
               {icon} {label}{ok&&step!==i?' ✓':''}
@@ -1962,8 +1962,8 @@ export default function App() {
                 <button key={g} onClick={()=>setMatchGroup(g)} style={{
                   padding:'5px 13px', position:'relative',
                   background: matchGroup===g?'#d4a017':allLocked?C.p.redBg:C.p.card2,
-                  color: matchGroup===g?'#000':allLocked?'#f87171':'#e2e8f0',
-                  border:'1px solid '+(matchGroup===g?'#d4a017':allLocked?'#3a1a1a':'#2a3f55'),
+                  color: matchGroup===g?'#000':allLocked?C.p.red:C.p.text,
+                  border:'1px solid '+(matchGroup===g?'#d4a017':allLocked?C.p.redBg:C.p.border2),
                   borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:13,
                 }}>
                   {g}
@@ -2004,7 +2004,7 @@ export default function App() {
                       border: filled?'1px solid rgba(212,160,23,0.2)':'1px solid transparent',
                       borderRadius:8,
                     }}>
-                      <span style={{textAlign:'right',fontSize:14,color:filled?'#e2e8f0':matchLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
+                      <span style={{textAlign:'right',fontSize:14,color:filled?C.p.text:matchLocked?C.p.dim:C.p.text2,fontWeight:filled?600:400}}>
                         <Flag team={m.home}/>{m.home}
                       </span>
                       <div style={{display:'flex', alignItems:'center', gap:5, flexDirection:'column'}}>
@@ -2026,8 +2026,8 @@ export default function App() {
                             <span style={{fontSize:10, color:C.p.dim, fontWeight:500}}>wynik</span>
                             <span style={{
                               fontSize:15, fontWeight:800,
-                              color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429': pts===0?'#f87171':'#e2e8f0',
-                              background: pts===4?'rgba(74,222,128,0.12)': pts===3?'rgba(103,215,245,0.12)': pts===2?'rgba(240,180,41,0.12)': pts===0?'rgba(248,113,113,0.12)':'rgba(255,255,255,0.06)',
+                              color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429': pts===0?'#f87171':C.p.text2,
+                              background: pts===4?'rgba(74,222,128,0.12)': pts===3?'rgba(103,215,245,0.12)': pts===2?'rgba(240,180,41,0.12)': pts===0?'rgba(248,113,113,0.12)':C.p.card3,
                               borderRadius:6, padding:'2px 8px',
                             }}>
                               {actual.h}:{actual.a}
@@ -2042,7 +2042,7 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                      <span style={{textAlign:'left',fontSize:14,color:filled?'#e2e8f0':matchLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
+                      <span style={{textAlign:'left',fontSize:14,color:filled?C.p.text:matchLocked?C.p.dim:C.p.text2,fontWeight:filled?600:400}}>
                         <Flag team={m.away}/>{m.away}
                       </span>
                     </div>
@@ -2080,7 +2080,7 @@ export default function App() {
                       <input type="radio" name={`g${g}`} disabled={locked}
                         checked={pred.groupWinners[g]===team} onChange={()=>setGW(g,team)}
                         style={{accentColor:'#d4a017',width:16,height:16}}/>
-                      <span style={{color:pred.groupWinners[g]===team?'#f0b429':locked?'#4a5568':'#bcc6d4',fontSize:14}}>
+                      <span style={{color:pred.groupWinners[g]===team?C.p.gold:locked?C.p.dim:C.p.text2,fontSize:14}}>
                         <Flag team={team}/>{team}
                       </span>
                     </label>
