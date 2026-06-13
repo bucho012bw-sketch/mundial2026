@@ -180,12 +180,17 @@ function getMatchPts(predData, key, actualScores) {
 function Flag({ team, size = 20 }) {
   const code = FLAG_CODES[team]
   if (!code) return <span>🏳️</span>
-  const h = Math.round(size * 0.75)
+  // flagcdn.com obsługuje tylko w20/w40/w80 — skalujemy przez CSS
+  const src = size <= 24
+    ? `https://flagcdn.com/w20/${code}.png`
+    : size <= 48
+    ? `https://flagcdn.com/w40/${code}.png`
+    : `https://flagcdn.com/w80/${code}.png`
   return (
     <img
-      src={`https://flagcdn.com/${size}x${h}/${code}.png`}
+      src={src}
       alt={team}
-      width={size} height={h}
+      width={size}
       style={{ verticalAlign: 'middle', display: 'inline-block', marginRight: 3 }}
     />
   )
