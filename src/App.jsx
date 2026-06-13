@@ -253,6 +253,11 @@ function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
             <button onClick={() => setView('leaderboard')} style={C.btn('#1e2d3d','#ccc')}>📊 Ranking</button>
           </Tip>
         )}
+        {view !== 'schedule' && (
+          <Tip text="Terminarz">
+            <button onClick={() => setView('schedule')} style={C.btn('#1e2d3d','#67d7f5')}>📅 Terminarz</button>
+          </Tip>
+        )}
         {view !== 'rules' && (
           <Tip text="Zasady i punktacja">
             <button onClick={() => setView('rules')} style={C.btn('#1e2d3d','#6b7a8d')}>ℹ️</button>
@@ -292,6 +297,8 @@ export default function App() {
   const [adminErr, setAdminErr] = useState('')
   const [loading, setLoading] = useState(false)
   const [saved, setSaved]     = useState(false)
+  const [schedGroup, setSchedGroup] = useState(GROUP_LETTERS[0])
+  const [schedTab, setSchedTab]     = useState('group')
   const [toast, setToast]     = useState('')
   const [matchGroup, setMatchGroup] = useState(
     () => GROUP_LETTERS.find(g => !isMatchLocked(g, 1)) || GROUP_LETTERS[0]
@@ -538,6 +545,24 @@ export default function App() {
   const scoredPreds = allPreds
     .map(p => ({ ...p, score: calcScore(p.data || {}, results) }))
     .sort((a,b) => b.score.total - a.score.total)
+
+  const getGroupStandings = (g) => {
+    const teams = GROUPS[g].map(t => ({ name: t, pts: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, mp: 0 }))
+    MATCHES[g].forEach(m => {
+      const s = results.matchScores?.[matchKey(g, m)]
+      if (!s || s.h === '' || s.a === '') return
+      const h = parseInt(s.h), a = parseInt(s.a)
+      const home = teams.find(t => t.name === m.home)
+      const away = teams.find(t => t.name === m.away)
+      if (!home || !away) return
+      home.gf += h; home.ga += a; home.gd += h - a; home.mp++
+      away.gf += a; away.ga += h; away.gd += a - h; away.mp++
+      if (h > a) { home.pts += 3; home.w++; away.l++ }
+      else if (h < a) { away.pts += 3; away.w++; home.l++ }
+      else { home.pts++; home.d++; away.pts++; away.d++ }
+    })
+    return teams.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+  }
 
   const calcMaxPts = (pData) => {
     let max = 0
@@ -1465,6 +1490,267 @@ export default function App() {
       </div>
     </div>
   )
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TERMINARZ
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (view === 'schedule') {
+    const standings = getGroupStandings(schedGroup)
+    const qualifyBg = (i) => i === 0 ? 'rgba(212,160,23,0.1)' : i === 1 ? 'rgba(103,215,245,0.07)' : 'transparent'
+    const qualifyBorder = (i) => i === 0 ? '2px solid #d4a017' : i === 1 ? '1px solid #2a4a5a' : '1px solid transparent'
+
+    const MatchCard = ({ g, m }) => {
+      const key = matchKey(g, m)
+      const score = results.matchScores?.[key]
+      const played = score?.h !== '' && score?.a !== ''
+      const kickoff = getMatchKickoff(g, m)
+      const upcoming = kickoff > new Date()
+      const dateStr = kickoff.toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', timeZone:'Europe/Warsaw' })
+      return (
+        <div style={{
+          background: played ? 'rgba(74,222,128,0.06)' : upcoming ? 'rgba(103,215,245,0.05)' : 'rgba(240,180,41,0.05)',
+          border: `1px solid ${played ? 'rgba(74,222,128,0.2)' : upcoming ? 'rgba(103,215,245,0.15)' : 'rgba(240,180,41,0.15)'}`,
+          borderRadius: 10, padding: '12px 14px', marginBottom: 8,
+        }}>
+          <div style={{fontSize:10, color:'#4a5568', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <span>📅 {dateStr} CET</span>
+            <span style={{
+              fontSize:10, fontWeight:700, borderRadius:4, padding:'1px 7px',
+              background: played ? 'rgba(74,222,128,0.15)' : upcoming ? 'rgba(103,215,245,0.12)' : 'rgba(240,180,41,0.12)',
+              color: played ? '#4ade80' : upcoming ? '#67d7f5' : '#f0b429',
+            }}>
+              {played ? '✅ Zakończony' : upcoming ? '⏳ Nadchodzący' : '🔴 W trakcie/oczekuje'}
+            </span>
+          </div>
+          <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:8}}>
+            <div style={{textAlign:'right', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:6}}>
+              <span style={{fontSize:13, fontWeight:700, color:'#e2e8f0'}}>{m.home}</span>
+              <Flag team={m.home} size={22}/>
+            </div>
+            <div style={{textAlign:'center', minWidth:80}}>
+              {played
+                ? <span style={{fontSize:22, fontWeight:900, color:'#4ade80', letterSpacing:2}}>{score.h} : {score.a}</span>
+                : <span style={{fontSize:14, color:'#4a5568', fontWeight:600}}>vs</span>
+              }
+            </div>
+            <div style={{textAlign:'left', display:'flex', alignItems:'center', gap:6}}>
+              <Flag team={m.away} size={22}/>
+              <span style={{fontSize:13, fontWeight:700, color:'#e2e8f0'}}>{m.away}</span>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    const KnockoutRound = ({ label, date, matches }) => (
+      <div style={{marginBottom:20}}>
+        <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10}}>
+          <span style={{...C.gold, fontWeight:800, fontSize:14}}>{label}</span>
+          <span style={{...C.muted, fontSize:12}}>{date}</span>
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:8}}>
+          {matches.map((pair, i) => {
+            const played = pair.score != null
+            return (
+              <div key={i} style={{
+                background: played ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${played ? 'rgba(74,222,128,0.2)' : '#1e2d3d'}`,
+                borderRadius:10, padding:'12px 14px',
+              }}>
+                <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:6}}>
+                  <div style={{textAlign:'right', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:5}}>
+                    {pair.home ? <><span style={{fontSize:12, fontWeight:700, color:'#e2e8f0'}}>{pair.home}</span><Flag team={pair.home} size={20}/></> : <span style={{color:'#2a3f55', fontSize:12}}>TBD</span>}
+                  </div>
+                  <div style={{textAlign:'center', minWidth:70}}>
+                    {played
+                      ? <span style={{fontSize:18, fontWeight:900, color:'#4ade80'}}>{pair.score}</span>
+                      : pair.home && pair.away
+                      ? <span style={{fontSize:12, color:'#4a5568'}}>vs</span>
+                      : <span style={{fontSize:18, color:'#2a3f55'}}>-</span>
+                    }
+                  </div>
+                  <div style={{textAlign:'left', display:'flex', alignItems:'center', gap:5}}>
+                    {pair.away ? <><Flag team={pair.away} size={20}/><span style={{fontSize:12, fontWeight:700, color:'#e2e8f0'}}>{pair.away}</span></> : <span style={{color:'#2a3f55', fontSize:12}}>TBD</span>}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+
+    const sfPairs = results.semifinalists?.filter(Boolean).length >= 2
+      ? [
+          { home: results.semifinalists?.[0]||null, away: results.semifinalists?.[1]||null, score: null },
+          { home: results.semifinalists?.[2]||null, away: results.semifinalists?.[3]||null, score: null },
+        ]
+      : [{ home:null, away:null, score:null }, { home:null, away:null, score:null }]
+
+    const finalPair = results.finalist1 || results.finalist2
+      ? [{ home: results.finalist1||null, away: results.finalist2||null, score: results.winner ? `${results.winner === results.finalist1 ? '?' : '?'}` : null }]
+      : [{ home:null, away:null, score:null }]
+
+    return (
+      <div style={C.page}>
+        {toast && <Toast msg={toast}/>}
+        {AdminModal}
+        <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
+        <div style={{maxWidth:1100, margin:'0 auto', padding:'20px 16px 40px'}}>
+          <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:20, flexWrap:'wrap'}}>
+            <h2 style={{...C.gold, margin:0}}>📅 Terminarz MŚ 2026</h2>
+            <span style={{...C.muted, fontSize:13}}>11 cze – 19 lip 2026</span>
+          </div>
+
+          {/* Główne zakładki */}
+          <div style={{display:'flex', gap:6, marginBottom:20}}>
+            {[['group','⚽ Faza grupowa'],['knockout','⚔️ Faza pucharowa']].map(([id,lab]) => (
+              <button key={id} onClick={()=>setSchedTab(id)} style={{
+                padding:'10px 20px', borderRadius:8, fontWeight:700, fontSize:14, cursor:'pointer',
+                background: schedTab===id ? '#d4a017' : '#161d27',
+                color: schedTab===id ? '#000' : '#6b7a8d',
+                border: `1px solid ${schedTab===id ? '#d4a017' : '#1e2d3d'}`,
+              }}>{lab}</button>
+            ))}
+          </div>
+
+          {/* ── FAZA GRUPOWA ── */}
+          {schedTab === 'group' && (
+            <div style={{display:'grid', gridTemplateColumns:'240px 1fr', gap:16, alignItems:'start'}}>
+              {/* Lewa kolumna: wybór grupy */}
+              <div>
+                <div style={{...C.muted, fontSize:11, fontWeight:700, marginBottom:8, letterSpacing:1}}>GRUPY</div>
+                <div style={{display:'flex', flexDirection:'column', gap:4}}>
+                  {GROUP_LETTERS.map(g => {
+                    const st = getGroupStandings(g)
+                    const played = MATCHES[g].filter(m => {const s=results.matchScores?.[matchKey(g,m)];return s?.h!==''&&s?.a!==''}).length
+                    return (
+                      <button key={g} onClick={()=>setSchedGroup(g)} style={{
+                        display:'flex', alignItems:'center', justifyContent:'space-between',
+                        padding:'8px 12px', borderRadius:8, cursor:'pointer', textAlign:'left',
+                        background: schedGroup===g ? 'rgba(212,160,23,0.15)' : '#161d27',
+                        border: `1px solid ${schedGroup===g ? '#d4a017' : '#1e2d3d'}`,
+                      }}>
+                        <div style={{display:'flex', alignItems:'center', gap:8}}>
+                          <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:11,borderRadius:4,padding:'1px 7px'}}>GR {g}</span>
+                          <div>
+                            {st.slice(0,2).map(t => (
+                              <div key={t.name} style={{display:'flex', alignItems:'center', gap:3}}>
+                                <Flag team={t.name} size={12}/>
+                                <span style={{fontSize:10, color: schedGroup===g?'#e2e8f0':'#6b7a8d'}}>{SHORT_NAMES[t.name]||t.name}</span>
+                                <span style={{fontSize:10, color:'#d4a017', fontWeight:700}}>{t.pts}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <span style={{fontSize:10, color:'#4a5568'}}>{played}/6</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Prawa kolumna: tabela + mecze */}
+              <div>
+                <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:16}}>
+                  <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:16,borderRadius:8,padding:'4px 16px'}}>GRUPA {schedGroup}</span>
+                </div>
+
+                {/* Tabela grupy */}
+                <div style={{...C.card({marginBottom:16, padding:0, overflow:'hidden'})}}>
+                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
+                    <thead>
+                      <tr style={{background:'#111820'}}>
+                        {['#','Drużyna','M','W','R','P','G+','G-','GD','Pkt'].map(h => (
+                          <th key={h} style={{padding:'8px 8px', color: h==='Pkt'?'#d4a017':'#6b7a8d', textAlign: h==='Drużyna'?'left':'center', fontWeight:700, fontSize:11}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.map((t, i) => (
+                        <tr key={t.name} style={{borderTop:'1px solid #1e2d3d', background:qualifyBg(i), borderLeft:qualifyBorder(i)}}>
+                          <td style={{padding:'8px 8px', textAlign:'center', color: i===0?'#d4a017':i===1?'#67d7f5':'#6b7a8d', fontWeight:700}}>{i+1}</td>
+                          <td style={{padding:'8px 8px', whiteSpace:'nowrap', fontWeight:600, color:'#e2e8f0'}}>
+                            <Flag team={t.name} size={18}/>{t.name}
+                          </td>
+                          {[t.mp,t.w,t.d,t.l,t.gf,t.ga].map((v,vi) => (
+                            <td key={vi} style={{padding:'8px 6px', textAlign:'center', color: vi===0?'#bcc6d4':'#6b7a8d'}}>{v}</td>
+                          ))}
+                          <td style={{padding:'8px 6px', textAlign:'center', color: t.gd>0?'#4ade80':t.gd<0?'#f87171':'#6b7a8d', fontWeight:600}}>{t.gd>0?`+${t.gd}`:t.gd}</td>
+                          <td style={{padding:'8px 8px', textAlign:'center', fontWeight:900, fontSize:15, color: t.pts>0?'#d4a017':'#4a5568'}}>{t.pts}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{padding:'6px 12px', display:'flex', gap:16, borderTop:'1px solid #1e2d3d'}}>
+                    <span style={{fontSize:10, color:'#d4a017'}}>━ 1. miejsce</span>
+                    <span style={{fontSize:10, color:'#67d7f5'}}>━ 2. miejsce</span>
+                    <span style={{fontSize:10, color:'#4a5568'}}>odpadają</span>
+                  </div>
+                </div>
+
+                {/* Mecze grupowe */}
+                {[1,2,3].map(md => (
+                  <div key={md} style={{marginBottom:16}}>
+                    <div style={{...C.muted, fontSize:12, fontWeight:700, marginBottom:8, display:'flex', alignItems:'center', gap:8}}>
+                      <span>KOLEJKA {md}</span>
+                      {isMatchLocked(schedGroup, md)
+                        ? <span style={{fontSize:10, color:'#f87171', background:'rgba(248,113,113,0.1)', borderRadius:4, padding:'1px 6px'}}>🔒 Zablokowane</span>
+                        : <span style={{fontSize:10, color:'#4ade80', background:'rgba(74,222,128,0.08)', borderRadius:4, padding:'1px 6px'}}>🟢 Otwarte</span>
+                      }
+                    </div>
+                    {MATCHES[schedGroup].filter(m=>m.matchday===md).map(m => (
+                      <MatchCard key={matchKey(schedGroup,m)} g={schedGroup} m={m}/>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── FAZA PUCHAROWA ── */}
+          {schedTab === 'knockout' && (
+            <div>
+              <KnockoutRound
+                label="1/16 finału — Runda 32"
+                date="28 cze – 4 lip 2026"
+                matches={Array(16).fill({home:null,away:null,score:null})}
+              />
+              <KnockoutRound
+                label="1/8 finału — Runda 16"
+                date="4–7 lip 2026"
+                matches={Array(8).fill({home:null,away:null,score:null})}
+              />
+              <KnockoutRound
+                label="Ćwierćfinały"
+                date="9–12 lip 2026"
+                matches={Array(4).fill({home:null,away:null,score:null})}
+              />
+              <KnockoutRound
+                label="Półfinały"
+                date="14–15 lip 2026"
+                matches={sfPairs}
+              />
+              <KnockoutRound
+                label="Finał"
+                date="19 lip 2026 · MetLife Stadium"
+                matches={finalPair}
+              />
+              {results.winner && (
+                <div style={{...C.card({border:'2px solid #d4a017', background:'rgba(212,160,23,0.08)'}), textAlign:'center', padding:'24px'}}>
+                  <div style={{...C.muted, fontSize:13, marginBottom:8}}>🏆 Mistrz Świata 2026</div>
+                  <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:12}}>
+                    <Flag team={results.winner} size={48}/>
+                    <span style={{...C.gold, fontSize:28, fontWeight:900}}>{results.winner}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PREDICT – 5 kroków
