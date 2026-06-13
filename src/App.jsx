@@ -68,6 +68,7 @@ const EN_TO_PL = {
 // ─── Tema (light / dark) ──────────────────────────────────────────────────────
 const PALETTES = {
   dark: {
+    _light: false,
     pageBg:'#0b0f13',   headerBg:'linear-gradient(135deg,#07290a 0%,#0f4015 60%,#07290a 100%)',
     card:'#161d27',     card2:'#111820',    card3:'#0f1923',
     border:'#1e2d3d',   border2:'#2a3f55',
@@ -78,24 +79,29 @@ const PALETTES = {
     greenBg:'rgba(26,46,26,1)',   redBg:'rgba(58,26,26,1)',
     greenTx:'#4ade80',  redTx:'#f87171',
   },
+  // Stonowany szaro-niebieski — nie oślepia, dobry kontrast
   light: {
-    pageBg:'#f0f4f8',   headerBg:'linear-gradient(135deg,#1a5c20 0%,#2d8c35 60%,#1a5c20 100%)',
-    card:'#ffffff',     card2:'#eef2f7',    card3:'#e4ecf5',
-    border:'#d0dce8',   border2:'#a0b4c8',
-    text:'#1a2535',     text2:'#374555',    muted:'#627080',  dim:'#8a9ab0',
-    gold:'#b07000',     goldAcc:'#c07800',  sky:'#0070a0',
-    green:'#1a7a30',    red:'#bb2222',
-    input:'#e8eef5',    input2:'#ffffff',
-    greenBg:'rgba(230,245,235,1)', redBg:'rgba(250,232,232,1)',
-    greenTx:'#1a7a30',  redTx:'#bb2222',
+    _light: true,
+    pageBg:'#d6dce8',   headerBg:'linear-gradient(135deg,#1a5020 0%,#27753a 60%,#1a5020 100%)',
+    card:'#e8edf5',     card2:'#d0d8e4',    card3:'#c4cdd9',
+    border:'#a8b4c4',   border2:'#7a8ea2',
+    text:'#1a2535',     text2:'#2d3e52',    muted:'#4e6070',  dim:'#6a7888',
+    gold:'#7a5200',     goldAcc:'#9a6800',  sky:'#004e75',
+    green:'#124d20',    red:'#7a1010',
+    input:'#d0d8e6',    input2:'#dde3ee',
+    greenBg:'#c0dcc8',  redBg:'#dfc0c0',
+    greenTx:'#124d20',  redTx:'#7a1010',
   },
 }
 
 const makeC = (p) => ({
   page:   { minHeight:'100vh', background:p.pageBg, fontFamily:"'Segoe UI',system-ui,sans-serif", color:p.text },
   header: { background:p.headerBg, padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center',
-            borderBottom:'2px solid #d4a017', boxShadow:'0 4px 24px rgba(0,0,0,0.5)' },
-  card:   (extra={}) => ({ background:p.card, borderRadius:12, padding:20, border:`1px solid ${p.border}`, ...extra }),
+            borderBottom:'2px solid #d4a017', boxShadow:'0 4px 20px rgba(0,0,0,0.4)' },
+  card:   (extra={}) => ({ background:p.card, borderRadius:12, padding:20,
+            border:`1px solid ${p.border}`,
+            boxShadow: p._light ? '0 2px 8px rgba(0,20,60,0.1)' : 'none',
+            ...extra }),
   gold:   { color:p.gold },
   sky:    { color:p.sky },
   green:  { color:p.green },
