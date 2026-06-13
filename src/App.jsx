@@ -1545,73 +1545,76 @@ export default function App() {
                 {MATCHES[matchGroup].filter(m=>{const s=pred.matchScores?.[matchKey(matchGroup,m)];return s?.h!==''&&s?.a!==''}).length}/6
               </span>
             </div>
-            {[1,2,3].map(md => {
-              const mdFirstLock = getMatchLock(matchGroup, md)
-              return (
-                <div key={md} style={{paddingTop:md>1?14:0,borderTop:md>1?'1px solid #1e2d3d':'none',marginBottom:4}}>
-                  <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
-                    <span style={{...C.muted, fontSize:12, fontWeight:600}}>Kolejka {md}</span>
-                    <LockBadge lockTime={mdFirstLock}/>
-                  </div>
-                  {MATCHES[matchGroup].filter(m=>m.matchday===md).map(m => {
-                    const key   = matchKey(matchGroup, m)
-                    const score = pred.matchScores?.[key]||{h:'',a:''}
-                    const actual= results.matchScores?.[key]
-                    const filled = score.h!==''&&score.a!==''
-                    const hasResult = actual?.h!==''&&actual?.a!==''
-                    const matchLocked = isMatchKickoffPassed(matchGroup, m)
-                    let pts = null
-                    if (hasResult && filled) {
-                      const s = calcScore({matchScores:{[key]:score}},{matchScores:{[key]:actual}})
-                      pts = s.matchPts
-                    }
-                    return (
-                      <div key={key} style={{
-                        display:'grid', gridTemplateColumns:'1fr auto 1fr',
-                        alignItems:'center', gap:10, padding:'9px 6px', marginBottom:4,
-                        background: filled?'rgba(212,160,23,0.05)':'transparent',
-                        border: filled?'1px solid rgba(212,160,23,0.2)':'1px solid transparent',
-                        borderRadius:8,
-                      }}>
-                        <span style={{textAlign:'right',fontSize:14,color:filled?'#e2e8f0':matchLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
-                          <Flag team={m.home}/>{m.home}
+            {[1,2,3].map(md => (
+              <div key={md} style={{paddingTop:md>1?14:0,borderTop:md>1?'1px solid #1e2d3d':'none',marginBottom:4}}>
+                <div style={{...C.muted, fontSize:12, fontWeight:600, marginBottom:10}}>Kolejka {md}</div>
+                {MATCHES[matchGroup].filter(m=>m.matchday===md).map(m => {
+                  const key   = matchKey(matchGroup, m)
+                  const score = pred.matchScores?.[key]||{h:'',a:''}
+                  const actual= results.matchScores?.[key]
+                  const filled = score.h!==''&&score.a!==''
+                  const hasResult = actual?.h!==''&&actual?.a!==''
+                  const matchLocked = isMatchKickoffPassed(matchGroup, m)
+                  const kickoff = getMatchKickoff(matchGroup, m)
+                  let pts = null
+                  if (hasResult && filled) {
+                    const s = calcScore({matchScores:{[key]:score}},{matchScores:{[key]:actual}})
+                    pts = s.matchPts
+                  }
+                  return (
+                    <div key={key} style={{
+                      display:'grid', gridTemplateColumns:'1fr auto 1fr',
+                      alignItems:'center', gap:10, padding:'9px 6px', marginBottom:4,
+                      background: filled?'rgba(212,160,23,0.05)':'transparent',
+                      border: filled?'1px solid rgba(212,160,23,0.2)':'1px solid transparent',
+                      borderRadius:8,
+                    }}>
+                      <span style={{textAlign:'right',fontSize:14,color:filled?'#e2e8f0':matchLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
+                        <Flag team={m.home}/>{m.home}
+                      </span>
+                      <div style={{display:'flex', alignItems:'center', gap:5, flexDirection:'column'}}>
+                        <span style={{
+                          fontSize:10, fontWeight:600,
+                          color: matchLocked ? '#f87171' : '#4ade80',
+                          background: matchLocked ? 'rgba(248,113,113,0.1)' : 'rgba(74,222,128,0.08)',
+                          borderRadius:4, padding:'2px 7px', whiteSpace:'nowrap',
+                        }}>
+                          {matchLocked ? '🔒 Zablokowane' : `📅 ${formatLockTime(kickoff)}`}
                         </span>
-                        <div style={{display:'flex', alignItems:'center', gap:5, flexDirection:'column'}}>
-                          <div style={{display:'flex', alignItems:'center', gap:5}}>
-                            <ScoreInput val={score.h} onChange={v=>setMatchScore(matchGroup,m,'h',v)} locked={matchLocked}/>
-                            <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
-                            <ScoreInput val={score.a} onChange={v=>setMatchScore(matchGroup,m,'a',v)} locked={matchLocked}/>
-                          </div>
-                          {hasResult && (
-                            <div style={{display:'flex', alignItems:'center', gap:6, marginTop:4}}>
-                              <span style={{fontSize:10, color:'#4a5568', fontWeight:500}}>wynik</span>
-                              <span style={{
-                                fontSize:15, fontWeight:800,
-                                color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429': pts===0?'#f87171':'#e2e8f0',
-                                background: pts===4?'rgba(74,222,128,0.12)': pts===3?'rgba(103,215,245,0.12)': pts===2?'rgba(240,180,41,0.12)': pts===0?'rgba(248,113,113,0.12)':'rgba(255,255,255,0.06)',
-                                borderRadius:6, padding:'2px 8px',
-                              }}>
-                                {actual.h}:{actual.a}
-                              </span>
-                              {pts !== null
-                                ? <span style={{fontWeight:700, fontSize:12,
-                                    color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429':'#f87171'}}>
-                                    {pts>0?`+${pts} pkt`:'✗ 0 pkt'}
-                                  </span>
-                                : <span style={{fontSize:11, color:'#4a5568'}}>(brak typowania)</span>
-                              }
-                            </div>
-                          )}
+                        <div style={{display:'flex', alignItems:'center', gap:5}}>
+                          <ScoreInput val={score.h} onChange={v=>setMatchScore(matchGroup,m,'h',v)} locked={matchLocked}/>
+                          <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
+                          <ScoreInput val={score.a} onChange={v=>setMatchScore(matchGroup,m,'a',v)} locked={matchLocked}/>
                         </div>
-                        <span style={{textAlign:'left',fontSize:14,color:filled?'#e2e8f0':matchLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
-                          <Flag team={m.away}/>{m.away}
-                        </span>
+                        {hasResult && (
+                          <div style={{display:'flex', alignItems:'center', gap:6, marginTop:2}}>
+                            <span style={{fontSize:10, color:'#4a5568', fontWeight:500}}>wynik</span>
+                            <span style={{
+                              fontSize:15, fontWeight:800,
+                              color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429': pts===0?'#f87171':'#e2e8f0',
+                              background: pts===4?'rgba(74,222,128,0.12)': pts===3?'rgba(103,215,245,0.12)': pts===2?'rgba(240,180,41,0.12)': pts===0?'rgba(248,113,113,0.12)':'rgba(255,255,255,0.06)',
+                              borderRadius:6, padding:'2px 8px',
+                            }}>
+                              {actual.h}:{actual.a}
+                            </span>
+                            {pts !== null
+                              ? <span style={{fontWeight:700, fontSize:12,
+                                  color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429':'#f87171'}}>
+                                  {pts>0?`+${pts} pkt`:'✗ 0 pkt'}
+                                </span>
+                              : <span style={{fontSize:11, color:'#4a5568'}}>(brak typowania)</span>
+                            }
+                          </div>
+                        )}
                       </div>
-                    )
-                  })}
-                </div>
-              )
-            })}
+                      <span style={{textAlign:'left',fontSize:14,color:filled?'#e2e8f0':matchLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
+                        <Flag team={m.away}/>{m.away}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
           </div>
 
           <div style={{display:'flex', justifyContent:'flex-end', marginTop:20}}>
