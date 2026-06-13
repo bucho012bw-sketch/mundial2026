@@ -65,29 +65,57 @@ const EN_TO_PL = {
 }
 
 
-// ─── CSS helpers ──────────────────────────────────────────────────────────────
-const C = {
-  page:   { minHeight:'100vh', background:'#0b0f13', fontFamily:"'Segoe UI',system-ui,sans-serif", color:'#e2e8f0' },
-  header: { background:'linear-gradient(135deg,#07290a 0%,#0f4015 60%,#07290a 100%)',
-            padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center',
-            borderBottom:'2px solid #d4a017', boxShadow:'0 4px 24px rgba(0,0,0,0.6)' },
-  card:   (extra={}) => ({ background:'#161d27', borderRadius:12, padding:20, border:'1px solid #1e2d3d', ...extra }),
-  gold:   { color:'#f0b429' },
-  sky:    { color:'#67d7f5' },
-  green:  { color:'#4ade80' },
-  red:    { color:'#f87171' },
-  muted:  { color:'#6b7a8d' },
+// ─── Tema (light / dark) ──────────────────────────────────────────────────────
+const PALETTES = {
+  dark: {
+    pageBg:'#0b0f13',   headerBg:'linear-gradient(135deg,#07290a 0%,#0f4015 60%,#07290a 100%)',
+    card:'#161d27',     card2:'#111820',    card3:'#0f1923',
+    border:'#1e2d3d',   border2:'#2a3f55',
+    text:'#e2e8f0',     text2:'#bcc6d4',    muted:'#6b7a8d',  dim:'#4a5568',
+    gold:'#f0b429',     goldAcc:'#d4a017',  sky:'#67d7f5',
+    green:'#4ade80',    red:'#f87171',
+    input:'#1e2d3d',    input2:'#161d27',
+    greenBg:'rgba(26,46,26,1)',   redBg:'rgba(58,26,26,1)',
+    greenTx:'#4ade80',  redTx:'#f87171',
+  },
+  light: {
+    pageBg:'#f0f4f8',   headerBg:'linear-gradient(135deg,#1a5c20 0%,#2d8c35 60%,#1a5c20 100%)',
+    card:'#ffffff',     card2:'#eef2f7',    card3:'#e4ecf5',
+    border:'#d0dce8',   border2:'#a0b4c8',
+    text:'#1a2535',     text2:'#374555',    muted:'#627080',  dim:'#8a9ab0',
+    gold:'#b07000',     goldAcc:'#c07800',  sky:'#0070a0',
+    green:'#1a7a30',    red:'#bb2222',
+    input:'#e8eef5',    input2:'#ffffff',
+    greenBg:'rgba(230,245,235,1)', redBg:'rgba(250,232,232,1)',
+    greenTx:'#1a7a30',  redTx:'#bb2222',
+  },
+}
+
+const makeC = (p) => ({
+  page:   { minHeight:'100vh', background:p.pageBg, fontFamily:"'Segoe UI',system-ui,sans-serif", color:p.text },
+  header: { background:p.headerBg, padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center',
+            borderBottom:'2px solid #d4a017', boxShadow:'0 4px 24px rgba(0,0,0,0.5)' },
+  card:   (extra={}) => ({ background:p.card, borderRadius:12, padding:20, border:`1px solid ${p.border}`, ...extra }),
+  gold:   { color:p.gold },
+  sky:    { color:p.sky },
+  green:  { color:p.green },
+  red:    { color:p.red },
+  muted:  { color:p.muted },
   btn: (bg, cl, op=1) => ({
     border:'none', borderRadius:8, padding:'10px 18px',
     cursor: op < 1 ? 'not-allowed' : 'pointer',
     fontWeight:700, fontSize:14, transition:'all 0.15s',
     background:bg, color:cl, opacity:op,
   }),
-  sel: { width:'100%', padding:'10px 12px', background:'#1e2d3d', color:'#e2e8f0',
-         border:'1px solid #2a3f55', borderRadius:8, fontSize:14, cursor:'pointer' },
-  inp: { width:'100%', padding:'13px 16px', background:'#161d27', color:'#e2e8f0',
-         border:'2px solid #2a3f55', borderRadius:10, fontSize:16, boxSizing:'border-box', outline:'none' },
-}
+  sel: { width:'100%', padding:'10px 12px', background:p.input, color:p.text,
+         border:`1px solid ${p.border2}`, borderRadius:8, fontSize:14, cursor:'pointer' },
+  inp: { width:'100%', padding:'13px 16px', background:p.input2, color:p.text,
+         border:`2px solid ${p.border2}`, borderRadius:10, fontSize:16, boxSizing:'border-box', outline:'none' },
+  p,
+})
+
+const _initDark = (() => { try { return localStorage.getItem('mundial_theme') !== 'light' } catch { return true } })()
+let C = makeC(_initDark ? PALETTES.dark : PALETTES.light)
 
 function formatTimeAgo(dt) {
   if (!dt) return null
@@ -111,9 +139,9 @@ function Toast({ msg }) {
   return (
     <div style={{
       position:'fixed', top:20, left:'50%', transform:'translateX(-50%)',
-      background:'#1e2d3d', color:'#e2e8f0', padding:'12px 24px', borderRadius:10,
-      boxShadow:'0 8px 32px rgba(0,0,0,0.6)', zIndex:9999, fontWeight:600, fontSize:14,
-      border:'1px solid #2a3f55',
+      background:C.p.card2, color:C.p.text, padding:'12px 24px', borderRadius:10,
+      boxShadow:'0 8px 32px rgba(0,0,0,0.4)', zIndex:9999, fontWeight:600, fontSize:14,
+      border:`1px solid ${C.p.border2}`,
     }}>{msg}</div>
   )
 }
@@ -121,12 +149,12 @@ function Toast({ msg }) {
 function LockBadge({ lockTime }) {
   const locked = new Date() >= lockTime
   if (locked) return (
-    <span style={{fontSize:11, background:'#3a1a1a', color:'#f87171', borderRadius:4, padding:'2px 8px'}}>
+    <span style={{fontSize:11, background:C.p.redBg, color:C.p.redTx, borderRadius:4, padding:'2px 8px'}}>
       🔒 Zablokowane
     </span>
   )
   return (
-    <span style={{fontSize:11, background:'#1a2e1a', color:'#4ade80', borderRadius:4, padding:'2px 8px'}}>
+    <span style={{fontSize:11, background:C.p.greenBg, color:C.p.greenTx, borderRadius:4, padding:'2px 8px'}}>
       🟢 {formatLockTime(lockTime)}
     </span>
   )
@@ -135,12 +163,12 @@ function LockBadge({ lockTime }) {
 function KnockoutDeadlineBanner() {
   const locked = new Date() >= KNOCKOUT_LOCK_UTC
   if (locked) return (
-    <div style={{background:'#2a0a0a', border:'1px solid #f87171', borderRadius:8, padding:'10px 16px', marginBottom:16, fontSize:13, color:'#f87171'}}>
+    <div style={{background:C.p.redBg, border:`1px solid ${C.p.redTx}`, borderRadius:8, padding:'10px 16px', marginBottom:16, fontSize:13, color:C.p.redTx}}>
       🔒 Typowanie zostało zablokowane — termin minął ({formatLockTime(KNOCKOUT_LOCK_UTC)}).
     </div>
   )
   return (
-    <div style={{background:'#0d1f0d', border:'1px solid #4ade80', borderRadius:8, padding:'10px 16px', marginBottom:16, fontSize:13, color:'#4ade80'}}>
+    <div style={{background:C.p.greenBg, border:`1px solid ${C.p.greenTx}`, borderRadius:8, padding:'10px 16px', marginBottom:16, fontSize:13, color:C.p.greenTx}}>
       ⏰ Typowanie możliwe do: <strong>{formatLockTime(KNOCKOUT_LOCK_UTC)}</strong>
     </div>
   )
@@ -155,9 +183,9 @@ function ScoreInput({ val, onChange, locked }) {
       onChange={e => onChange(e.target.value.replace(/\D/g,''))}
       style={{
         width:48, textAlign:'center', padding:'8px 2px',
-        background: locked ? '#0f1520' : '#1e2d3d',
-        color: locked ? '#4a5568' : '#e2e8f0',
-        border:`1.5px solid ${val !== '' ? '#d4a017' : '#2a3f55'}`,
+        background: locked ? C.p.card3 : C.p.input,
+        color: locked ? C.p.dim : C.p.text,
+        border:`1.5px solid ${val !== '' ? '#d4a017' : C.p.border2}`,
         borderRadius:8, fontSize:18, fontWeight:700, outline:'none',
         cursor: locked ? 'not-allowed' : 'auto',
       }}
@@ -212,9 +240,9 @@ function Tip({ text, children }) {
       <span data-tip style={{
         position:'absolute', top:'calc(100% + 6px)', left:'50%',
         transform:'translateX(-50%)',
-        background:'#1a2535', color:'#e2e8f0', fontSize:11, fontWeight:500,
+        background:'#1a2535', color:C.p.text, fontSize:11, fontWeight:500,
         padding:'5px 10px', borderRadius:6, whiteSpace:'nowrap',
-        border:'1px solid #2a3f55', pointerEvents:'none',
+        border:`1px solid ${C.p.border2}`, pointerEvents:'none',
         opacity:0, transition:'opacity 0.15s', zIndex:999,
       }}>
         <span style={{
@@ -230,13 +258,14 @@ function Tip({ text, children }) {
 }
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
-function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
+function NavBar({ username, view, setView, onLogout, saved, onAdminClick, isDark, onToggleTheme, C: _C }) {
+  const CC = _C || C
   return (
-    <div style={C.header}>
+    <div style={CC.header}>
       <div>
-        <h2 style={{...C.gold, margin:0, fontSize:17}}>⚽ Mundial 2026 · Typer</h2>
+        <h2 style={{...CC.gold, margin:0, fontSize:17}}>⚽ Mundial 2026 · Typer</h2>
         {username && (
-          <p style={{...C.muted, margin:0, fontSize:11}}>
+          <p style={{...CC.muted, margin:0, fontSize:11}}>
             Cześć, <strong style={{color:'#d4a017'}}>{displayName(username)}</strong>
             {saved ? ' · ✅ Zapisano' : ''}
           </p>
@@ -245,30 +274,35 @@ function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
       <div style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center'}}>
         {username && view !== 'predict' && (
           <Tip text="Moje typowanie">
-            <button onClick={() => setView('predict')} style={C.btn('#d4a017','#000')}>✏️ Typowanie</button>
+            <button onClick={() => setView('predict')} style={CC.btn('#d4a017','#000')}>✏️ Typowanie</button>
           </Tip>
         )}
         {view !== 'leaderboard' && (
           <Tip text="Ranking uczestników">
-            <button onClick={() => setView('leaderboard')} style={C.btn('#1e2d3d','#ccc')}>📊 Ranking</button>
+            <button onClick={() => setView('leaderboard')} style={CC.btn(CC.p.card2,CC.p.text2)}>📊 Ranking</button>
           </Tip>
         )}
         {view !== 'schedule' && (
           <Tip text="Terminarz">
-            <button onClick={() => setView('schedule')} style={C.btn('#1e2d3d','#67d7f5')}>📅 Terminarz</button>
+            <button onClick={() => setView('schedule')} style={CC.btn(CC.p.card2,CC.p.sky)}>📅 Terminarz</button>
           </Tip>
         )}
         {view !== 'rules' && (
           <Tip text="Zasady i punktacja">
-            <button onClick={() => setView('rules')} style={C.btn('#1e2d3d','#6b7a8d')}>ℹ️</button>
+            <button onClick={() => setView('rules')} style={CC.btn(CC.p.card2,CC.p.muted)}>ℹ️</button>
           </Tip>
         )}
         <Tip text="Admin">
           <button onClick={onAdminClick}
-            style={C.btn(view==='admin'?'#d4a017':'#1e2d3d', view==='admin'?'#000':'#6b7a8d')}>⚙️</button>
+            style={CC.btn(view==='admin'?'#d4a017':CC.p.card2, view==='admin'?'#000':CC.p.muted)}>⚙️</button>
+        </Tip>
+        <Tip text={isDark ? 'Jasny tryb' : 'Ciemny tryb'}>
+          <button onClick={onToggleTheme} style={CC.btn(CC.p.card2, isDark ? '#f0b429' : '#374555')}>
+            {isDark ? '☀️' : '🌙'}
+          </button>
         </Tip>
         <Tip text="Wyloguj się">
-          <button onClick={onLogout} style={C.btn('#1e2d3d','#6b7a8d')}>🚪</button>
+          <button onClick={onLogout} style={CC.btn(CC.p.card2,CC.p.muted)}>🚪</button>
         </Tip>
       </div>
     </div>
@@ -279,6 +313,18 @@ function NavBar({ username, view, setView, onLogout, saved, onAdminClick }) {
 // MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
+  const [isDark, setIsDark]   = useState(_initDark)
+  const toggleTheme = () => {
+    setIsDark(d => {
+      const next = !d
+      // update module-level C so all components (incl. Toast etc.) pick up new theme
+      // eslint-disable-next-line no-global-assign
+      C = makeC(next ? PALETTES.dark : PALETTES.light)
+      localStorage.setItem('mundial_theme', next ? 'dark' : 'light')
+      return next
+    })
+  }
+
   const [view, setView]       = useState('login')
   const [username, setUser]   = useState('')
   const [nameInput, setName]  = useState('')
@@ -605,7 +651,7 @@ export default function App() {
       position:'fixed', inset:0, background:'rgba(0,0,0,0.8)',
       display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000,
     }}>
-      <div style={{background:'#0f1923', border:'2px solid #d4a017', borderRadius:16,
+      <div style={{background:C.p.card3, border:'2px solid #d4a017', borderRadius:16,
                    padding:'32px 28px', maxWidth:340, width:'90%', textAlign:'center'}}>
         <div style={{fontSize:36, marginBottom:8}}>⚙️</div>
         <h3 style={{...C.gold, margin:'0 0 6px'}}>Panel Wyników</h3>
@@ -622,7 +668,7 @@ export default function App() {
         {adminErr && <p style={{...C.red, fontSize:13, margin:'8px 0 0'}}>{adminErr}</p>}
         <div style={{display:'flex', gap:10, marginTop:16}}>
           <button onClick={() => setShowAdminModal(false)}
-            style={{...C.btn('#1e2d3d','#ccc'), flex:1}}>Anuluj</button>
+            style={{...C.btn(C.p.card2,C.p.text2), flex:1}}>Anuluj</button>
           <button onClick={handleAdminPin}
             style={{...C.btn('#d4a017','#000'), flex:1}}>Wejdź</button>
         </div>
@@ -640,7 +686,7 @@ export default function App() {
                  background:'radial-gradient(ellipse at 50% 0%,#0f4015 0%,#0b0f13 70%)'}}>
       {toast && <Toast msg={toast}/>}
       {AdminModal}
-      <div style={{background:'#0f1923', border:'2px solid #d4a017', borderRadius:20,
+      <div style={{background:C.p.card3, border:'2px solid #d4a017', borderRadius:20,
                    padding:'40px 36px', maxWidth:420, width:'90%', textAlign:'center',
                    boxShadow:'0 24px 80px rgba(0,0,0,0.8)'}}>
         <div style={{fontSize:52}}>⚽</div>
@@ -648,14 +694,14 @@ export default function App() {
         <p style={{...C.muted, margin:'0 0 4px', fontSize:13}}>🇺🇸 USA · 🇨🇦 Kanada · 🇲🇽 Meksyk</p>
         <p style={{...C.muted, margin:'0 0 20px', fontSize:12}}>11 czerwca – 19 lipca 2026 · 48 drużyn · 104 mecze</p>
 
-        <div style={{background:'#1a2535', border:'1px solid #2a3f55', borderRadius:10,
+        <div style={{background:'#1a2535', border:`1px solid ${C.p.border2}`, borderRadius:10,
                      padding:'12px 16px', marginBottom:20, textAlign:'left'}}>
-          <p style={{margin:'0 0 6px', fontSize:13, color:'#e2e8f0', fontWeight:600}}>👋 Jak dołączyć?</p>
+          <p style={{margin:'0 0 6px', fontSize:13, color:C.p.text, fontWeight:600}}>👋 Jak dołączyć?</p>
           <ul style={{...C.muted, margin:0, paddingLeft:18, fontSize:12, lineHeight:1.8}}>
-            <li>Wpisz swój <strong style={{color:'#e2e8f0'}}>nick</strong></li>
-            <li>Wymyśl <strong style={{color:'#e2e8f0'}}>4-cyfrowy PIN</strong> — zapamiętaj go!</li>
+            <li>Wpisz swój <strong style={{color:C.p.text}}>nick</strong></li>
+            <li>Wymyśl <strong style={{color:C.p.text}}>4-cyfrowy PIN</strong> — zapamiętaj go!</li>
             <li>Pierwsze wejście <strong style={{color:'#4ade80'}}>tworzy konto</strong></li>
-            <li>Kolejne wejścia wymagają <strong style={{color:'#e2e8f0'}}>tego samego PINu</strong></li>
+            <li>Kolejne wejścia wymagają <strong style={{color:C.p.text}}>tego samego PINu</strong></li>
           </ul>
         </div>
 
@@ -711,7 +757,7 @@ export default function App() {
   if (view === 'rules') return (
     <div style={C.page}>
       {AdminModal}
-      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
+      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick} isDark={isDark} onToggleTheme={toggleTheme} C={C}/>
       <div style={{maxWidth:560, margin:'40px auto', padding:'0 20px'}}>
         <h2 style={{...C.gold, marginBottom:20}}>📋 Zasady punktacji</h2>
 
@@ -719,7 +765,7 @@ export default function App() {
           <h4 style={{...C.sky, margin:'0 0 12px'}}>⚽ Typowanie wyników meczów</h4>
           {SCORING_MATCHES.map(({label,pts}) => (
             <div key={label} style={{display:'flex', justifyContent:'space-between', alignItems:'center',
-                                     padding:'10px 0', borderBottom:'1px solid #1e2d3d'}}>
+                                     padding:'10px 0', borderBottom:`1px solid ${C.p.border}`}}>
               <span style={{fontSize:14}}>{label}</span>
               <span style={{...C.sky, fontWeight:800, fontSize:17}}>{pts} pkt</span>
             </div>
@@ -733,7 +779,7 @@ export default function App() {
           <h4 style={{...C.gold, margin:'0 0 12px'}}>🏆 Punkty bonusowe</h4>
           {SCORING_BONUS.map(({label,pts}) => (
             <div key={label} style={{display:'flex', justifyContent:'space-between', alignItems:'center',
-                                     padding:'10px 0', borderBottom:'1px solid #1e2d3d'}}>
+                                     padding:'10px 0', borderBottom:`1px solid ${C.p.border}`}}>
               <span style={{fontSize:14}}>{label}</span>
               <span style={{...C.gold, fontWeight:800, fontSize:17}}>{pts} pkt</span>
             </div>
@@ -751,11 +797,11 @@ export default function App() {
         <div style={{...C.card({marginTop:16, border:'1px solid #1e3a1e'})}}>
           <h4 style={{...C.green, margin:'0 0 10px'}}>🔒 Blokady typowania</h4>
           <ul style={{...C.muted, fontSize:13, lineHeight:1.9, margin:0, paddingLeft:18}}>
-            <li><strong style={{color:'#e2e8f0'}}>Mecze kolejka 1</strong> → z kickoffem 1. meczu grupy</li>
-            <li><strong style={{color:'#e2e8f0'}}>Mecze kolejka 2</strong> → ~5 dni po starcie grupy</li>
-            <li><strong style={{color:'#e2e8f0'}}>Mecze kolejka 3</strong> → ~10 dni po starcie grupy</li>
-            <li><strong style={{color:'#e2e8f0'}}>Zwycięzca grupy</strong> → z kickoffem 1. meczu grupy</li>
-            <li><strong style={{color:'#e2e8f0'}}>Faza pucharowa / Mistrz</strong> → 28 czerwca (Runda 32)</li>
+            <li><strong style={{color:C.p.text}}>Mecze kolejka 1</strong> → z kickoffem 1. meczu grupy</li>
+            <li><strong style={{color:C.p.text}}>Mecze kolejka 2</strong> → ~5 dni po starcie grupy</li>
+            <li><strong style={{color:C.p.text}}>Mecze kolejka 3</strong> → ~10 dni po starcie grupy</li>
+            <li><strong style={{color:C.p.text}}>Zwycięzca grupy</strong> → z kickoffem 1. meczu grupy</li>
+            <li><strong style={{color:C.p.text}}>Faza pucharowa / Mistrz</strong> → 28 czerwca (Runda 32)</li>
           </ul>
         </div>
       </div>
@@ -791,9 +837,9 @@ export default function App() {
         <div style={{overflowX:'auto'}}>
           <table style={{borderCollapse:'collapse', fontSize:12, minWidth:'100%'}}>
             <thead>
-              <tr style={{background:'#111820'}}>
-                <th style={{padding:'6px 8px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:'#111820', zIndex:2}}>Mecz</th>
-                <th style={{padding:'6px 6px', textAlign:'center', color:'#6b7a8d', whiteSpace:'nowrap', fontSize:11}}>Wynik</th>
+              <tr style={{background:C.p.card2}}>
+                <th style={{padding:'6px 8px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card2, zIndex:2}}>Mecz</th>
+                <th style={{padding:'6px 6px', textAlign:'center', color:C.p.muted, whiteSpace:'nowrap', fontSize:11}}>Wynik</th>
                 {scoredPreds.map(p => (
                   <th key={p.username} style={{padding:'6px 5px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap', maxWidth:70, overflow:'hidden', textOverflow:'ellipsis', fontSize:11}}>
                     {p.username===username?'👤 ':''}{displayName(p.username)}
@@ -806,14 +852,14 @@ export default function App() {
                 const actual = results.matchScores?.[m.key]
                 const hasResult = actual?.h !== '' && actual?.a !== ''
                 return (
-                  <tr key={m.key} style={{borderTop:'1px solid #1e2d3d'}}>
-                    <td style={{padding:'5px 8px', whiteSpace:'nowrap', position:'sticky', left:0, background:'#161d27', zIndex:1}}>
+                  <tr key={m.key} style={{borderTop:`1px solid ${C.p.border}`}}>
+                    <td style={{padding:'5px 8px', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card, zIndex:1}}>
                       <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:9,borderRadius:3,padding:'1px 4px',marginRight:4}}>{m.group}</span>
                       <Flag team={m.home} size={18}/>
-                      <span style={{color:'#bcc6d4', fontSize:11, fontWeight:600, marginRight:4}}>{SHORT_NAMES[m.home]||m.home}</span>
-                      <span style={{color:'#4a5568', fontSize:10, marginRight:4}}>-</span>
+                      <span style={{color:C.p.text2, fontSize:11, fontWeight:600, marginRight:4}}>{SHORT_NAMES[m.home]||m.home}</span>
+                      <span style={{color:C.p.dim, fontSize:10, marginRight:4}}>-</span>
                       <Flag team={m.away} size={18}/>
-                      <span style={{color:'#bcc6d4', fontSize:11, fontWeight:600}}>{SHORT_NAMES[m.away]||m.away}</span>
+                      <span style={{color:C.p.text2, fontSize:11, fontWeight:600}}>{SHORT_NAMES[m.away]||m.away}</span>
                     </td>
                     <td style={{padding:'7px 8px', textAlign:'center', fontWeight:700, color: hasResult?'#4ade80':'#4a5568', whiteSpace:'nowrap'}}>
                       {hasResult ? `${actual.h}:${actual.a}` : '—'}
@@ -827,7 +873,7 @@ export default function App() {
                       const pts = getMatchPts(p.data, m.key, results.matchScores)
                       if (!visible) return (
                         <td key={p.username} style={{padding:'6px', textAlign:'center'}}>
-                          <span style={{color:'#2a3f55', fontSize:12}}>🔒</span>
+                          <span style={{color:C.p.border2, fontSize:12}}>🔒</span>
                         </td>
                       )
                       return (
@@ -837,7 +883,7 @@ export default function App() {
                                 {pred.h}:{pred.a}
                                 {pts !== null && <span style={{fontSize:10, marginLeft:3, opacity:0.8}}>{pts>0?`+${pts}`:''}</span>}
                               </span>
-                            : <span style={{color:'#2a3f55'}}>—</span>
+                            : <span style={{color:C.p.border2}}>—</span>
                           }
                         </td>
                       )
@@ -847,7 +893,7 @@ export default function App() {
               })}
             </tbody>
             <tfoot>
-              <tr style={{borderTop:'2px solid #d4a017', background:'#111820'}}>
+              <tr style={{borderTop:'2px solid #d4a017', background:C.p.card2}}>
                 <td colSpan={2} style={{padding:'8px 10px', color:'#d4a017', fontWeight:700, fontSize:12}}>Suma kolejka {md}</td>
                 {scoredPreds.map(p => {
                   const sum = mdMatches.reduce((acc, m) => acc + (getMatchPts(p.data, m.key, results.matchScores) ?? 0), 0)
@@ -911,9 +957,9 @@ export default function App() {
       <div style={{overflowX:'auto'}}>
         <table style={{borderCollapse:'collapse', fontSize:12, minWidth:'100%'}}>
           <thead>
-            <tr style={{background:'#111820'}}>
-              <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:'#111820', zIndex:2}}>Pytanie</th>
-              <th style={{padding:'8px 8px', textAlign:'center', color:'#6b7a8d', whiteSpace:'nowrap'}}>Pkt</th>
+            <tr style={{background:C.p.card2}}>
+              <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card2, zIndex:2}}>Pytanie</th>
+              <th style={{padding:'8px 8px', textAlign:'center', color:C.p.muted, whiteSpace:'nowrap'}}>Pkt</th>
               <th style={{padding:'8px 8px', textAlign:'center', color:'#4ade80', whiteSpace:'nowrap'}}>Wynik</th>
               {scoredPreds.map(p => (
                 <th key={p.username} style={{padding:'8px 6px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
@@ -926,8 +972,8 @@ export default function App() {
             {bonusRows.map((row, ri) => {
               const actual = row.getActual()
               return (
-                <tr key={ri} style={{borderTop:'1px solid #1e2d3d'}}>
-                  <td style={{padding:'7px 10px', whiteSpace:'nowrap', position:'sticky', left:0, background:'#161d27', zIndex:1, color:'#bcc6d4'}}>{row.label}</td>
+                <tr key={ri} style={{borderTop:`1px solid ${C.p.border}`}}>
+                  <td style={{padding:'7px 10px', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card, zIndex:1, color:C.p.text2}}>{row.label}</td>
                   <td style={{padding:'7px 8px', textAlign:'center', color:'#f0b429', fontWeight:700}}>{row.pts}</td>
                   <td style={{padding:'7px 8px', textAlign:'center', color:'#4ade80', fontWeight:600}}>{actual || '—'}</td>
                   {scoredPreds.map(p => {
@@ -935,7 +981,7 @@ export default function App() {
                     const visible = isMe || row.isVisible()
                     if (!visible) return (
                       <td key={p.username} style={{padding:'6px', textAlign:'center'}}>
-                        <span style={{color:'#2a3f55', fontSize:12}}>🔒</span>
+                        <span style={{color:C.p.border2, fontSize:12}}>🔒</span>
                       </td>
                     )
                     const val = row.getVal(p.data)
@@ -947,7 +993,7 @@ export default function App() {
                           ? <span style={{color: correct===true?'#4ade80':correct===false?'#f87171':'#bcc6d4', fontWeight:600, fontSize:11}}>
                               {val}{correct===true?' ✓':correct===false?' ✗':''}
                             </span>
-                          : <span style={{color:'#2a3f55'}}>—</span>
+                          : <span style={{color:C.p.border2}}>—</span>
                         }
                       </td>
                     )
@@ -964,7 +1010,7 @@ export default function App() {
     <div style={C.page}>
       {toast && <Toast msg={toast}/>}
       {AdminModal}
-      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
+      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick} isDark={isDark} onToggleTheme={toggleTheme} C={C}/>
       <div style={{maxWidth:1400, margin:'24px auto', padding:'0 16px'}}>
         <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap'}}>
           <h2 style={{...C.gold, margin:0}}>📊 Ranking ({allPreds.length})</h2>
@@ -974,7 +1020,7 @@ export default function App() {
             </span>
           )}
           {lastSync && (
-            <span style={{fontSize:11, color:'#4a5568'}}>
+            <span style={{fontSize:11, color:C.p.dim}}>
               🔄 sync: {formatTimeAgo(lastSync)}
             </span>
           )}
@@ -992,7 +1038,7 @@ export default function App() {
               padding:'8px 16px', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer',
               background: rankTab===t.id?'#d4a017':'#161d27',
               color: rankTab===t.id?'#000':'#6b7a8d',
-              border: `1px solid ${rankTab===t.id?'#d4a017':'#1e2d3d'}`,
+              border: `1px solid ${rankTab===t.id?'#d4a017':C.p.border}`,
             }}>{t.label}</button>
           ))}
         </div>
@@ -1007,24 +1053,24 @@ export default function App() {
           {/* ── TABELA (summary) ─────────────────────────────── */}
           {rankTab === 'summary' && (
             <div style={{overflowX:'auto'}}>
-              <table style={{width:'100%', borderCollapse:'collapse', background:'#161d27', borderRadius:14, overflow:'hidden', fontSize:13}}>
+              <table style={{width:'100%', borderCollapse:'collapse', background:C.p.card, borderRadius:14, overflow:'hidden', fontSize:13}}>
                 <thead>
-                  <tr style={{background:'#111820'}}>
+                  <tr style={{background:C.p.card2}}>
                     <th style={{padding:'12px 16px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap'}}>#</th>
                     <th style={{padding:'12px 12px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap'}}>Uczestnik</th>
                     <th style={{padding:'12px 10px', color:'#67d7f5', textAlign:'center', whiteSpace:'nowrap'}}>⚽ Mecze</th>
                     <th style={{padding:'12px 10px', color:'#f0b429', textAlign:'center', whiteSpace:'nowrap'}}>🏆 Bonus</th>
                     <th style={{padding:'12px 10px', color:'#4ade80', textAlign:'center', whiteSpace:'nowrap', background:'rgba(74,222,128,0.07)'}}>Razem</th>
-                    <th style={{padding:'12px 6px', color:'#4a5568', textAlign:'center', whiteSpace:'nowrap', fontSize:11}}>max+</th>
+                    <th style={{padding:'12px 6px', color:C.p.dim, textAlign:'center', whiteSpace:'nowrap', fontSize:11}}>max+</th>
                     {[1,2,3].map(md => (
-                      <th key={md} style={{padding:'12px 8px', color:'#6b7a8d', textAlign:'center', fontSize:11}}>K{md}</th>
+                      <th key={md} style={{padding:'12px 8px', color:C.p.muted, textAlign:'center', fontSize:11}}>K{md}</th>
                     ))}
                     {GROUP_LETTERS.map(g => (
                       <th key={g} style={{padding:'12px 4px', color: isGroupLocked(g)?'#f87171':'#6b7a8d', textAlign:'center', fontSize:11, whiteSpace:'nowrap'}}>
                         {isGroupLocked(g)?'🔒':''}{g}
                       </th>
                     ))}
-                    <th style={{padding:'12px 6px', color:'#6b7a8d', textAlign:'center', fontSize:11}}>⚔️</th>
+                    <th style={{padding:'12px 6px', color:C.p.muted, textAlign:'center', fontSize:11}}>⚔️</th>
                     <th style={{padding:'12px 8px', color:'#d4a017', textAlign:'center', fontSize:12}}>🏆</th>
                   </tr>
                 </thead>
@@ -1038,7 +1084,7 @@ export default function App() {
                         .reduce((acc,m) => acc + (getMatchPts(p.data, m.key, results.matchScores) ?? 0), 0)
                     )
                     return (
-                      <tr key={i} style={{borderTop:'1px solid #1e2d3d', background: isMe?'rgba(212,160,23,0.06)':'transparent'}}>
+                      <tr key={i} style={{borderTop:`1px solid ${C.p.border}`, background: isMe?'rgba(212,160,23,0.06)':'transparent'}}>
                         <td style={{padding:'10px 16px', fontWeight:800, color: i===0?'#f0b429':i===1?'#aab4be':i===2?'#cd7f32':'#6b7a8d', fontSize:15}}>
                           {i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`}
                         </td>
@@ -1059,8 +1105,8 @@ export default function App() {
                         </td>
                         <td style={{padding:'8px 6px', textAlign:'center'}}>
                           {maxRemaining > 0
-                            ? <span style={{fontSize:11, color:'#4a5568', fontWeight:600}}>+{maxRemaining}</span>
-                            : <span style={{fontSize:11, color:'#2a3f55'}}>—</span>}
+                            ? <span style={{fontSize:11, color:C.p.dim, fontWeight:600}}>+{maxRemaining}</span>
+                            : <span style={{fontSize:11, color:C.p.border2}}>—</span>}
                         </td>
                         {mdPts.map((pts, mi) => (
                           <td key={mi} style={{padding:'8px', textAlign:'center'}}>
@@ -1075,24 +1121,24 @@ export default function App() {
                             <td key={g} style={{padding:'8px 3px', textAlign:'center'}}>
                               {!groupStarted ? (
                                 t
-                                  ? <span style={{color:'#2a3f55', fontSize:14, fontWeight:700}}>?</span>
-                                  : <span style={{color:'#2a3f55'}}>—</span>
+                                  ? <span style={{color:C.p.border2, fontSize:14, fontWeight:700}}>?</span>
+                                  : <span style={{color:C.p.border2}}>—</span>
                               ) : t ? (
                                 <span style={{opacity: correct?1:0.5, display:'inline-flex', flexDirection:'column', alignItems:'center', gap:1}}>
                                   <Flag team={t} size={16}/>
                                   <span style={{fontSize:8, color: correct?'#4ade80':'#6b7a8d', maxWidth:32, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t}</span>
                                 </span>
-                              ) : <span style={{color:'#2a3f55'}}>—</span>}
+                              ) : <span style={{color:C.p.border2}}>—</span>}
                             </td>
                           )
                         })}
                         <td style={{padding:'8px', textAlign:'center', fontSize:14}}>
                           {(p.data?.semifinalists||[]).filter(Boolean).length > 0
                             ? (p.data?.semifinalists||[]).filter(Boolean).map((t,j) => <Flag key={j} team={t} size={16}/>)
-                            : <span style={{color:'#2a3f55'}}>—</span>}
+                            : <span style={{color:C.p.border2}}>—</span>}
                         </td>
                         <td style={{padding:'8px 10px', textAlign:'center', fontWeight:700, color:'#f0b429', whiteSpace:'nowrap', fontSize:13}}>
-                          {p.data?.winner ? <><Flag team={p.data.winner} size={16}/>{p.data.winner}</> : <span style={{color:'#2a3f55'}}>—</span>}
+                          {p.data?.winner ? <><Flag team={p.data.winner} size={16}/>{p.data.winner}</> : <span style={{color:C.p.border2}}>—</span>}
                         </td>
                       </tr>
                     )
@@ -1112,11 +1158,11 @@ export default function App() {
             const labels = { r32:'1/16 finału', r16:'1/8 finału', qf:'Ćwierćfinały', third:'Mecz o 3. miejsce' }
             const dates  = { r32:'28 cze – 4 lip', r16:'4–7 lip', qf:'9–12 lip', third:'18 lip' }
             return (
-              <div style={{...C.card({border:'1px solid #1e2d3d'}), textAlign:'center', padding:'40px 20px'}}>
+              <div style={{...C.card({border:`1px solid ${C.p.border}`}), textAlign:'center', padding:'40px 20px'}}>
                 <div style={{fontSize:36, marginBottom:12}}>⚽</div>
                 <div style={{...C.gold, fontWeight:800, fontSize:18, marginBottom:6}}>{labels[rankTab]}</div>
                 <div style={{...C.muted, fontSize:13, marginBottom:16}}>{dates[rankTab]}</div>
-                <div style={{color:'#4a5568', fontSize:13}}>Typowanie meczów tej fazy pojawi się gdy znane będą pary</div>
+                <div style={{color:C.p.dim, fontSize:13}}>Typowanie meczów tej fazy pojawi się gdy znane będą pary</div>
               </div>
             )
           })()}
@@ -1129,16 +1175,16 @@ export default function App() {
                 <div style={{...C.muted, fontSize:12, marginBottom:10}}>14–15 lipca 2026</div>
                 <table style={{borderCollapse:'collapse', fontSize:12, minWidth:'100%'}}>
                   <thead>
-                    <tr style={{background:'#111820'}}>
-                      <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:'#111820', zIndex:2}}>Uczestnik</th>
+                    <tr style={{background:C.p.card2}}>
+                      <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card2, zIndex:2}}>Uczestnik</th>
                       {[1,2,3,4].map(i => (
-                        <th key={i} style={{padding:'8px 10px', textAlign:'center', color:'#6b7a8d'}}>Półfinalista #{i}</th>
+                        <th key={i} style={{padding:'8px 10px', textAlign:'center', color:C.p.muted}}>Półfinalista #{i}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    <tr style={{borderTop:'1px solid #2a3f55', background:'#0d1520'}}>
-                      <td style={{padding:'7px 10px', position:'sticky', left:0, background:'#0d1520', zIndex:1, color:'#4ade80', fontWeight:700}}>✅ Wynik</td>
+                    <tr style={{borderTop:`1px solid ${C.p.border2}`, background:C.p.card3}}>
+                      <td style={{padding:'7px 10px', position:'sticky', left:0, background:C.p.card3, zIndex:1, color:'#4ade80', fontWeight:700}}>✅ Wynik</td>
                       {[0,1,2,3].map(i => (
                         <td key={i} style={{padding:'7px 10px', textAlign:'center', color:'#4ade80', fontWeight:700}}>
                           {results.semifinalists?.[i] ? <><Flag team={results.semifinalists[i]} size={14}/> {results.semifinalists[i]}</> : '—'}
@@ -1149,12 +1195,12 @@ export default function App() {
                       const isMe = p.username === username
                       const visible = isMe || sfVisible
                       return (
-                        <tr key={p.username} style={{borderTop:'1px solid #1e2d3d', background: isMe?'rgba(212,160,23,0.05)':'transparent'}}>
+                        <tr key={p.username} style={{borderTop:`1px solid ${C.p.border}`, background: isMe?'rgba(212,160,23,0.05)':'transparent'}}>
                           <td style={{padding:'7px 10px', position:'sticky', left:0, background: isMe?'rgba(212,160,23,0.05)':'#161d27', zIndex:1, fontWeight:700, color: isMe?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
                             {isMe?'👤 ':''}{displayName(p.username)}
                           </td>
                           {[0,1,2,3].map(i => {
-                            if (!visible) return <td key={i} style={{padding:'6px', textAlign:'center'}}><span style={{color:'#2a3f55'}}>🔒</span></td>
+                            if (!visible) return <td key={i} style={{padding:'6px', textAlign:'center'}}><span style={{color:C.p.border2}}>🔒</span></td>
                             const sf = p.data?.semifinalists?.[i]
                             const actualSFs = (results.semifinalists||[]).filter(Boolean)
                             const correct = sf && actualSFs.length > 0 ? actualSFs.includes(sf) : null
@@ -1162,7 +1208,7 @@ export default function App() {
                               <td key={i} style={{padding:'7px 10px', textAlign:'center', background: correct===true?'rgba(74,222,128,0.12)':correct===false?'rgba(248,113,113,0.08)':'transparent'}}>
                                 {sf ? <span style={{color: correct===true?'#4ade80':correct===false?'#f87171':'#bcc6d4', fontWeight:600}}>
                                   <Flag team={sf} size={14}/> {sf}{correct===true?' ✓':correct===false?' ✗':''}
-                                </span> : <span style={{color:'#2a3f55'}}>—</span>}
+                                </span> : <span style={{color:C.p.border2}}>—</span>}
                               </td>
                             )
                           })}
@@ -1193,8 +1239,8 @@ export default function App() {
                 <div style={{...C.muted, fontSize:12, marginBottom:10}}>19 lipca 2026 · MetLife Stadium</div>
                 <table style={{borderCollapse:'collapse', fontSize:12, minWidth:'100%'}}>
                   <thead>
-                    <tr style={{background:'#111820'}}>
-                      <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', position:'sticky', left:0, background:'#111820', zIndex:2}}>Pytanie</th>
+                    <tr style={{background:C.p.card2}}>
+                      <th style={{padding:'8px 10px', textAlign:'left', color:'#d4a017', position:'sticky', left:0, background:C.p.card2, zIndex:2}}>Pytanie</th>
                       <th style={{padding:'8px 10px', textAlign:'center', color:'#4ade80'}}>Wynik</th>
                       {scoredPreds.map(p => (
                         <th key={p.username} style={{padding:'8px 8px', textAlign:'center', color: p.username===username?'#d4a017':'#e2e8f0', whiteSpace:'nowrap'}}>
@@ -1205,22 +1251,22 @@ export default function App() {
                   </thead>
                   <tbody>
                     {finalRows.map((row, ri) => (
-                      <tr key={ri} style={{borderTop:'1px solid #1e2d3d'}}>
-                        <td style={{padding:'7px 10px', position:'sticky', left:0, background:'#161d27', zIndex:1, color:'#bcc6d4', whiteSpace:'nowrap'}}>{row.label}</td>
+                      <tr key={ri} style={{borderTop:`1px solid ${C.p.border}`}}>
+                        <td style={{padding:'7px 10px', position:'sticky', left:0, background:C.p.card, zIndex:1, color:C.p.text2, whiteSpace:'nowrap'}}>{row.label}</td>
                         <td style={{padding:'7px 10px', textAlign:'center', color:'#4ade80', fontWeight:700}}>
                           {row.actual ? <><Flag team={row.actual} size={14}/> {row.actual}</> : '—'}
                         </td>
                         {scoredPreds.map(p => {
                           const isMe = p.username === username
                           const visible = isMe || fnVisible
-                          if (!visible) return <td key={p.username} style={{padding:'6px', textAlign:'center'}}><span style={{color:'#2a3f55'}}>🔒</span></td>
+                          if (!visible) return <td key={p.username} style={{padding:'6px', textAlign:'center'}}><span style={{color:C.p.border2}}>🔒</span></td>
                           const val = row.getVal(p.data)
                           const correct = row.isCorrect(p.data)
                           return (
                             <td key={p.username} style={{padding:'7px 8px', textAlign:'center', background: correct===true?'rgba(74,222,128,0.12)':correct===false?'rgba(248,113,113,0.08)':'transparent'}}>
                               {val ? <span style={{color: correct===true?'#4ade80':correct===false?'#f87171':'#bcc6d4', fontWeight:600}}>
                                 <Flag team={val} size={14}/> {val}{correct===true?' ✓':correct===false?' ✗':''}
-                              </span> : <span style={{color:'#2a3f55'}}>—</span>}
+                              </span> : <span style={{color:C.p.border2}}>—</span>}
                             </td>
                           )
                         })}
@@ -1239,7 +1285,7 @@ export default function App() {
 
         {/* ── LEGENDA ─────────────────────────────────────────── */}
         <div style={{marginTop:20, background:'#0c1219', border:'1px solid #1a2535', borderRadius:10, padding:'12px 16px'}}>
-          <div style={{color:'#4a5568', fontSize:11, fontWeight:700, marginBottom:10, letterSpacing:1}}>LEGENDA KOLUMN</div>
+          <div style={{color:C.p.dim, fontSize:11, fontWeight:700, marginBottom:10, letterSpacing:1}}>LEGENDA KOLUMN</div>
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:'7px 20px'}}>
             {[
               ['⚽ Mecze',     'Punkty za typowane wyniki meczów grupowych (maks. 72 × 4 = 288 pkt)'],
@@ -1284,7 +1330,7 @@ export default function App() {
     <div style={C.page}>
       {toast && <Toast msg={toast}/>}
       {AdminModal}
-      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
+      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick} isDark={isDark} onToggleTheme={toggleTheme} C={C}/>
       <div style={{maxWidth:1000, margin:'0 auto', padding:'20px 16px 40px'}}>
         <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:20, flexWrap:'wrap'}}>
           <h2 style={{...C.gold, margin:0}}>⚙️ Panel wyników</h2>
@@ -1293,7 +1339,7 @@ export default function App() {
           </span>
           <button onClick={() => { fetchAndSyncResults().then(() => showToast('🔄 Synchronizacja zakończona!')) }}
             disabled={loading}
-            style={{...C.btn('#1e2d3d','#67d7f5'), fontSize:12, padding:'6px 14px', marginLeft:'auto', opacity: loading?0.6:1}}>
+            style={{...C.btn(C.p.card2,C.p.sky), fontSize:12, padding:'6px 14px', marginLeft:'auto', opacity: loading?0.6:1}}>
             🔄 Odśwież z API
           </button>
           <button onClick={async () => {
@@ -1301,38 +1347,38 @@ export default function App() {
             const r = await fetch('/api/football-debug')
             const d = await r.json()
             setDebugInfo(d)
-          }} style={{...C.btn('#1e2d3d','#f0b429'), fontSize:12, padding:'6px 14px'}}>
+          }} style={{...C.btn(C.p.card2,'#f0b429'), fontSize:12, padding:'6px 14px'}}>
             🔍 Debug API
           </button>
           {lastSync && (
-            <span style={{fontSize:11, color:'#4a5568'}}>sync: {formatTimeAgo(lastSync)}</span>
+            <span style={{fontSize:11, color:C.p.dim}}>sync: {formatTimeAgo(lastSync)}</span>
           )}
         </div>
 
         {/* Debug info panel */}
         {debugInfo && debugInfo !== 'loading' && (
-          <div style={{background:'#0a1520', border:'1px solid #2a3f55', borderRadius:8, padding:'14px 16px', marginBottom:16, fontSize:12}}>
+          <div style={{background:C.p.card3, border:`1px solid ${C.p.border2}`, borderRadius:8, padding:'14px 16px', marginBottom:16, fontSize:12}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
               <span style={{color:'#f0b429', fontWeight:700}}>🔍 Diagnostyka API football-data.org</span>
-              <button onClick={() => setDebugInfo(null)} style={{...C.btn('#1e2d3d','#6b7a8d'), fontSize:11, padding:'2px 8px'}}>✕</button>
+              <button onClick={() => setDebugInfo(null)} style={{...C.btn(C.p.card2,C.p.muted), fontSize:11, padding:'2px 8px'}}>✕</button>
             </div>
             {debugInfo.apiError
               ? <div style={{color:'#f87171', fontWeight:700}}>❌ Błąd API: {debugInfo.apiError}</div>
               : <>
                   <div style={{color:'#4ade80'}}>✅ HTTP {debugInfo.httpStatus} · Turniej: {debugInfo.competitionName || '?'}</div>
-                  <div style={{color:'#e2e8f0', marginTop:4}}>Mecze z API: <strong>{debugInfo.totalMatches}</strong> · z wynikami: <strong style={{color: debugInfo.matchesWithScore>0?'#4ade80':'#f87171'}}>{debugInfo.matchesWithScore}</strong></div>
+                  <div style={{color:C.p.text, marginTop:4}}>Mecze z API: <strong>{debugInfo.totalMatches}</strong> · z wynikami: <strong style={{color: debugInfo.matchesWithScore>0?'#4ade80':'#f87171'}}>{debugInfo.matchesWithScore}</strong></div>
                   {debugInfo.matchesWithScore > 0 && (
                     <div style={{marginTop:8}}>
-                      <div style={{color:'#6b7a8d', marginBottom:4}}>Przykładowe wyniki z API:</div>
+                      <div style={{color:C.p.muted, marginBottom:4}}>Przykładowe wyniki z API:</div>
                       {debugInfo.sample.map((s,i) => (
-                        <div key={i} style={{color:'#bcc6d4'}}>{s.home} {s.score?.home}:{s.score?.away} {s.away} <span style={{color:'#4a5568'}}>({s.status})</span></div>
+                        <div key={i} style={{color:C.p.text2}}>{s.home} {s.score?.home}:{s.score?.away} {s.away} <span style={{color:C.p.dim}}>({s.status})</span></div>
                       ))}
                     </div>
                   )}
                   {debugInfo.unmappedNames?.length > 0 && (
                     <div style={{marginTop:8}}>
-                      <div style={{color:'#6b7a8d', marginBottom:2}}>Nazwy drużyn w API (sprawdź mapowanie):</div>
-                      <div style={{color:'#4a5568', fontSize:11}}>{debugInfo.unmappedNames.join(', ')}</div>
+                      <div style={{color:C.p.muted, marginBottom:2}}>Nazwy drużyn w API (sprawdź mapowanie):</div>
+                      <div style={{color:C.p.dim, fontSize:11}}>{debugInfo.unmappedNames.join(', ')}</div>
                     </div>
                   )}
                 </>
@@ -1350,7 +1396,7 @@ export default function App() {
               flex:1, padding:'10px 4px',
               background: adminStep===i?'#d4a017':'#161d27',
               color: adminStep===i?'#000':'#6b7a8d',
-              border:`1px solid ${adminStep===i?'#d4a017':'#1e2d3d'}`,
+              border:`1px solid ${adminStep===i?'#d4a017':C.p.border}`,
               borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:adminStep===i?700:500,
             }}>{label}</button>
           ))}
@@ -1367,7 +1413,7 @@ export default function App() {
               return (
                 <button key={g} onClick={()=>setAdminGroup(g)} style={{
                   padding:'5px 13px', position:'relative',
-                  background: adminGroup===g?'#d4a017':'#1e2d3d',
+                  background: adminGroup===g?'#d4a017':C.p.card2,
                   color: adminGroup===g?'#000':'#e2e8f0',
                   border:`1px solid ${adminGroup===g?'#d4a017':'#2a3f55'}`,
                   borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:13,
@@ -1394,7 +1440,7 @@ export default function App() {
               </span>
             </div>
             {[1,2,3].map(md => (
-              <div key={md} style={{paddingTop:md>1?14:0, borderTop:md>1?'1px solid #1e2d3d':'none', marginBottom:4}}>
+              <div key={md} style={{paddingTop:md>1?14:0, borderTop:md>1?`1px solid ${C.p.border}`:'none', marginBottom:4}}>
                 <div style={{...C.muted, fontSize:12, fontWeight:600, marginBottom:8}}>Kolejka {md}</div>
                 {MATCHES[adminGroup].filter(m=>m.matchday===md).map(m => {
                   const key = matchKey(adminGroup, m)
@@ -1431,7 +1477,7 @@ export default function App() {
         {adminStep === 1 && (
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))', gap:12}}>
             {GROUP_LETTERS.map(g => (
-              <div key={g} style={C.card({border: resultsDraft.groupWinners[g]?'1px solid #4ade80':'1px solid #1e2d3d'})}>
+              <div key={g} style={C.card({border: resultsDraft.groupWinners[g]?'1px solid #4ade80':`1px solid ${C.p.border}`})}>
                 <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
                   <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:13,borderRadius:6,padding:'2px 10px'}}>GR {g}</span>
                   {resultsDraft.groupWinners[g] && (
@@ -1511,7 +1557,7 @@ export default function App() {
         )}
 
         <div style={{marginTop:24, display:'flex', justifyContent:'flex-end', gap:12}}>
-          <button onClick={() => setView('leaderboard')} style={C.btn('#1e2d3d','#ccc')}>
+          <button onClick={() => setView('leaderboard')} style={C.btn(C.p.card2,C.p.text2)}>
             Podgląd rankingu →
           </button>
           <button onClick={handleSaveResults} disabled={loading}
@@ -1544,7 +1590,7 @@ export default function App() {
           border: `1px solid ${played ? 'rgba(74,222,128,0.2)' : upcoming ? 'rgba(103,215,245,0.15)' : 'rgba(240,180,41,0.15)'}`,
           borderRadius: 10, padding: '12px 14px', marginBottom: 8,
         }}>
-          <div style={{fontSize:10, color:'#4a5568', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div style={{fontSize:10, color:C.p.dim, marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
             <span>📅 {dateStr} CET</span>
             <span style={{
               fontSize:10, fontWeight:700, borderRadius:4, padding:'1px 7px',
@@ -1556,18 +1602,18 @@ export default function App() {
           </div>
           <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:8}}>
             <div style={{textAlign:'right', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:6}}>
-              <span style={{fontSize:13, fontWeight:700, color:'#e2e8f0'}}>{m.home}</span>
+              <span style={{fontSize:13, fontWeight:700, color:C.p.text}}>{m.home}</span>
               <Flag team={m.home} size={22}/>
             </div>
             <div style={{textAlign:'center', minWidth:80}}>
               {played
                 ? <span style={{fontSize:22, fontWeight:900, color:'#4ade80', letterSpacing:2}}>{score.h} : {score.a}</span>
-                : <span style={{fontSize:14, color:'#4a5568', fontWeight:600}}>vs</span>
+                : <span style={{fontSize:14, color:C.p.dim, fontWeight:600}}>vs</span>
               }
             </div>
             <div style={{textAlign:'left', display:'flex', alignItems:'center', gap:6}}>
               <Flag team={m.away} size={22}/>
-              <span style={{fontSize:13, fontWeight:700, color:'#e2e8f0'}}>{m.away}</span>
+              <span style={{fontSize:13, fontWeight:700, color:C.p.text}}>{m.away}</span>
             </div>
           </div>
         </div>
@@ -1635,7 +1681,7 @@ export default function App() {
                   </>
                 ) : (
                   <>
-                    <span style={{ display:'inline-block', width:14, height:10, background:'#1a2535', border:'1px solid #1e2d3d', borderRadius:2, flexShrink:0 }}/>
+                    <span style={{ display:'inline-block', width:14, height:10, background:'#1a2535', border:`1px solid ${C.p.border}`, borderRadius:2, flexShrink:0 }}/>
                     <span style={{ fontSize:10, color:'#253040', flex:1 }}>—</span>
                   </>
                 )}
@@ -1664,7 +1710,7 @@ export default function App() {
       <div style={C.page}>
         {toast && <Toast msg={toast}/>}
         {AdminModal}
-        <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
+        <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick} isDark={isDark} onToggleTheme={toggleTheme} C={C}/>
         <div style={{maxWidth:1100, margin:'0 auto', padding:'20px 16px 40px'}}>
           <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:20, flexWrap:'wrap'}}>
             <h2 style={{...C.gold, margin:0}}>📅 Terminarz MŚ 2026</h2>
@@ -1678,7 +1724,7 @@ export default function App() {
                 padding:'10px 20px', borderRadius:8, fontWeight:700, fontSize:14, cursor:'pointer',
                 background: schedTab===id ? '#d4a017' : '#161d27',
                 color: schedTab===id ? '#000' : '#6b7a8d',
-                border: `1px solid ${schedTab===id ? '#d4a017' : '#1e2d3d'}`,
+                border: `1px solid ${schedTab===id ? '#d4a017' : C.p.border}`,
               }}>{lab}</button>
             ))}
           </div>
@@ -1698,7 +1744,7 @@ export default function App() {
                         display:'flex', alignItems:'center', justifyContent:'space-between',
                         padding:'8px 12px', borderRadius:8, cursor:'pointer', textAlign:'left',
                         background: schedGroup===g ? 'rgba(212,160,23,0.15)' : '#161d27',
-                        border: `1px solid ${schedGroup===g ? '#d4a017' : '#1e2d3d'}`,
+                        border: `1px solid ${schedGroup===g ? '#d4a017' : C.p.border}`,
                       }}>
                         <div style={{display:'flex', alignItems:'center', gap:8}}>
                           <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:11,borderRadius:4,padding:'1px 7px'}}>GR {g}</span>
@@ -1712,7 +1758,7 @@ export default function App() {
                             ))}
                           </div>
                         </div>
-                        <span style={{fontSize:10, color:'#4a5568'}}>{played}/6</span>
+                        <span style={{fontSize:10, color:C.p.dim}}>{played}/6</span>
                       </button>
                     )
                   })}
@@ -1729,7 +1775,7 @@ export default function App() {
                 <div style={{...C.card({marginBottom:16, padding:0, overflow:'hidden'})}}>
                   <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
                     <thead>
-                      <tr style={{background:'#111820'}}>
+                      <tr style={{background:C.p.card2}}>
                         {['#','Drużyna','M','W','R','P','G+','G-','GD','Pkt'].map(h => (
                           <th key={h} style={{padding:'8px 8px', color: h==='Pkt'?'#d4a017':'#6b7a8d', textAlign: h==='Drużyna'?'left':'center', fontWeight:700, fontSize:11}}>{h}</th>
                         ))}
@@ -1737,9 +1783,9 @@ export default function App() {
                     </thead>
                     <tbody>
                       {standings.map((t, i) => (
-                        <tr key={t.name} style={{borderTop:'1px solid #1e2d3d', background:qualifyBg(i), borderLeft:qualifyBorder(i)}}>
+                        <tr key={t.name} style={{borderTop:`1px solid ${C.p.border}`, background:qualifyBg(i), borderLeft:qualifyBorder(i)}}>
                           <td style={{padding:'8px 8px', textAlign:'center', color: i===0?'#d4a017':i===1?'#67d7f5':'#6b7a8d', fontWeight:700}}>{i+1}</td>
-                          <td style={{padding:'8px 8px', whiteSpace:'nowrap', fontWeight:600, color:'#e2e8f0'}}>
+                          <td style={{padding:'8px 8px', whiteSpace:'nowrap', fontWeight:600, color:C.p.text}}>
                             <Flag team={t.name} size={18}/>{t.name}
                           </td>
                           {[t.mp,t.w,t.d,t.l,t.gf,t.ga].map((v,vi) => (
@@ -1751,10 +1797,10 @@ export default function App() {
                       ))}
                     </tbody>
                   </table>
-                  <div style={{padding:'6px 12px', display:'flex', gap:16, borderTop:'1px solid #1e2d3d'}}>
+                  <div style={{padding:'6px 12px', display:'flex', gap:16, borderTop:`1px solid ${C.p.border}`}}>
                     <span style={{fontSize:10, color:'#d4a017'}}>━ 1. miejsce</span>
                     <span style={{fontSize:10, color:'#67d7f5'}}>━ 2. miejsce</span>
-                    <span style={{fontSize:10, color:'#4a5568'}}>odpadają</span>
+                    <span style={{fontSize:10, color:C.p.dim}}>odpadają</span>
                   </div>
                 </div>
 
@@ -1848,7 +1894,7 @@ export default function App() {
     <div style={C.page}>
       {toast && <Toast msg={toast}/>}
       {AdminModal}
-      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick}/>
+      <NavBar username={username} view={view} setView={setView} onLogout={logout} saved={saved} onAdminClick={handleAdminClick} isDark={isDark} onToggleTheme={toggleTheme} C={C}/>
 
       <div style={{maxWidth:1000, margin:'0 auto', padding:'20px 16px 40px'}}>
 
@@ -1856,7 +1902,7 @@ export default function App() {
           <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:14, background:'#0f1a0a', border:'1px solid #2a3a10', borderRadius:8, padding:'8px 14px'}}>
             <span style={{fontSize:13}}>⏳</span>
             <span style={{fontSize:13, color:'#d4a017', fontWeight:600}}>Następna blokada:</span>
-            <span style={{fontSize:13, color:'#e2e8f0', fontWeight:700}}>{nl.label}</span>
+            <span style={{fontSize:13, color:C.p.text, fontWeight:700}}>{nl.label}</span>
             <span style={{fontSize:13, color:'#4ade80', fontWeight:800, marginLeft:4}}>za {cd}</span>
           </div>
         ) : null })()}
@@ -1873,7 +1919,7 @@ export default function App() {
               flex:1, minWidth:0, padding:'10px 4px',
               background: step===i?'#d4a017':ok?'#1a2e1a':'#161d27',
               color: step===i?'#000':ok?'#4ade80':'#6b7a8d',
-              border:`1px solid ${step===i?'#d4a017':ok?'#2a4d2a':'#1e2d3d'}`,
+              border:`1px solid ${step===i?'#d4a017':ok?'#2a4d2a':C.p.border}`,
               borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:step===i?700:500,
             }}>
               {icon} {label}{ok&&step!==i?' ✓':''}
@@ -1909,7 +1955,7 @@ export default function App() {
               return (
                 <button key={g} onClick={()=>setMatchGroup(g)} style={{
                   padding:'5px 13px', position:'relative',
-                  background: matchGroup===g?'#d4a017':allLocked?'#1a1010':'#1e2d3d',
+                  background: matchGroup===g?'#d4a017':allLocked?C.p.redBg:C.p.card2,
                   color: matchGroup===g?'#000':allLocked?'#f87171':'#e2e8f0',
                   border:'1px solid '+(matchGroup===g?'#d4a017':allLocked?'#3a1a1a':'#2a3f55'),
                   borderRadius:6, cursor:'pointer', fontWeight:700, fontSize:13,
@@ -1929,7 +1975,7 @@ export default function App() {
               </span>
             </div>
             {[1,2,3].map(md => (
-              <div key={md} style={{paddingTop:md>1?14:0,borderTop:md>1?'1px solid #1e2d3d':'none',marginBottom:4}}>
+              <div key={md} style={{paddingTop:md>1?14:0,borderTop:md>1?`1px solid ${C.p.border}`:'none',marginBottom:4}}>
                 <div style={{...C.muted, fontSize:12, fontWeight:600, marginBottom:10}}>Kolejka {md}</div>
                 {MATCHES[matchGroup].filter(m=>m.matchday===md).map(m => {
                   const key   = matchKey(matchGroup, m)
@@ -1971,7 +2017,7 @@ export default function App() {
                         </div>
                         {hasResult && (
                           <div style={{display:'flex', alignItems:'center', gap:6, marginTop:2}}>
-                            <span style={{fontSize:10, color:'#4a5568', fontWeight:500}}>wynik</span>
+                            <span style={{fontSize:10, color:C.p.dim, fontWeight:500}}>wynik</span>
                             <span style={{
                               fontSize:15, fontWeight:800,
                               color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429': pts===0?'#f87171':'#e2e8f0',
@@ -1985,7 +2031,7 @@ export default function App() {
                                   color: pts===4?'#4ade80': pts===3?'#67d7f5': pts===2?'#f0b429':'#f87171'}}>
                                   {pts>0?`+${pts} pkt`:'✗ 0 pkt'}
                                 </span>
-                              : <span style={{fontSize:11, color:'#4a5568'}}>(brak typowania)</span>
+                              : <span style={{fontSize:11, color:C.p.dim}}>(brak typowania)</span>
                             }
                           </div>
                         )}
@@ -2016,7 +2062,7 @@ export default function App() {
             {GROUP_LETTERS.map(g => {
               const locked = isGroupLocked(g)
               return (
-                <div key={g} style={C.card({border:pred.groupWinners[g]?'1px solid #d4a017':'1px solid #1e2d3d',opacity:locked?0.75:1})}>
+                <div key={g} style={C.card({border:pred.groupWinners[g]?'1px solid #d4a017':`1px solid ${C.p.border}`,opacity:locked?0.75:1})}>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                     <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:13,borderRadius:6,padding:'2px 10px'}}>GR {g}</span>
                     <LockBadge lockTime={GROUP_LOCK_UTC[g]}/>
@@ -2039,7 +2085,7 @@ export default function App() {
             })}
           </div>
           <div style={{display:'flex', justifyContent:'space-between'}}>
-            <button onClick={()=>setStep(0)} style={C.btn('#1e2d3d','#ccc')}>← Mecze</button>
+            <button onClick={()=>setStep(0)} style={C.btn(C.p.card2,C.p.text2)}>← Mecze</button>
             <button onClick={()=>setStep(2)} style={C.btn('#d4a017','#000')}>Dalej → Faza pucharowa</button>
           </div>
         </>)}
@@ -2079,7 +2125,7 @@ export default function App() {
             </div>
           </div>
           <div style={{display:'flex', justifyContent:'space-between'}}>
-            <button onClick={()=>setStep(1)} style={C.btn('#1e2d3d','#ccc')}>← Grupy</button>
+            <button onClick={()=>setStep(1)} style={C.btn(C.p.card2,C.p.text2)}>← Grupy</button>
             <button onClick={()=>setStep(3)} style={C.btn('#d4a017','#000')}>Dalej → Mistrz świata</button>
           </div>
         </>)}
@@ -2111,7 +2157,7 @@ export default function App() {
             </div>
           </div>
           <div style={{display:'flex', justifyContent:'space-between'}}>
-            <button onClick={()=>setStep(2)} style={C.btn('#1e2d3d','#ccc')}>← Puchar</button>
+            <button onClick={()=>setStep(2)} style={C.btn(C.p.card2,C.p.text2)}>← Puchar</button>
             <button onClick={()=>setStep(4)} style={C.btn('#d4a017','#000')}>Dalej → Podsumowanie</button>
           </div>
         </>)}
@@ -2138,7 +2184,7 @@ export default function App() {
               <h4 style={{...C.gold,margin:'0 0 12px',fontSize:14}}>🏆 Zwycięzcy grup</h4>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
                 {GROUP_LETTERS.map(g=>(
-                  <div key={g} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',background:isGroupLocked(g)?'#1a1010':'#1e2d3d',borderRadius:5}}>
+                  <div key={g} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',background:isGroupLocked(g)?C.p.redBg:C.p.card2,borderRadius:5}}>
                     <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:10,borderRadius:3,padding:'1px 5px',minWidth:16,textAlign:'center'}}>{g}</span>
                     <span style={{fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                       {pred.groupWinners[g]?<><Flag team={pred.groupWinners[g]} size={14}/>{pred.groupWinners[g]}</>:<span style={{color:isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️':'—'}</span>}
@@ -2150,24 +2196,24 @@ export default function App() {
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <div style={C.card()}>
                 <h4 style={{...C.gold,margin:'0 0 8px',fontSize:14}}>⚔️ Półfinaliści</h4>
-                {pred.semifinalists.map((t,i)=><div key={i} style={{color:'#bcc6d4',fontSize:13,marginBottom:3}}>#{i+1} {t?<><Flag team={t} size={14}/>{t}</>:<span style={{color:'#2a3f55'}}>—</span>}</div>)}
+                {pred.semifinalists.map((t,i)=><div key={i} style={{color:C.p.text2,fontSize:13,marginBottom:3}}>#{i+1} {t?<><Flag team={t} size={14}/>{t}</>:<span style={{color:C.p.border2}}>—</span>}</div>)}
               </div>
               <div style={C.card()}>
                 <h4 style={{...C.gold,margin:'0 0 8px',fontSize:14}}>🎖️ Finał</h4>
-                <div style={{color:'#bcc6d4',fontSize:13}}>{pred.finalist1?<><Flag team={pred.finalist1} size={14}/>{pred.finalist1}</>:'—'}<span style={{color:'#2a3f55'}}> vs </span>{pred.finalist2?<><Flag team={pred.finalist2} size={14}/>{pred.finalist2}</>:'—'}</div>
+                <div style={{color:C.p.text2,fontSize:13}}>{pred.finalist1?<><Flag team={pred.finalist1} size={14}/>{pred.finalist1}</>:'—'}<span style={{color:C.p.border2}}> vs </span>{pred.finalist2?<><Flag team={pred.finalist2} size={14}/>{pred.finalist2}</>:'—'}</div>
               </div>
               <div style={C.card({border:'1px solid #3a5020',background:'#111c0f'})}>
                 <div style={{...C.muted,fontSize:11}}>🏆 MISTRZ ŚWIATA 2026</div>
-                <div style={{...C.gold,fontSize:18,fontWeight:800,marginTop:4}}>{pred.winner?<><Flag team={pred.winner} size={16}/>{pred.winner}</>:<span style={{color:'#2a3f55',fontSize:13}}>Nie wybrano</span>}</div>
+                <div style={{...C.gold,fontSize:18,fontWeight:800,marginTop:4}}>{pred.winner?<><Flag team={pred.winner} size={16}/>{pred.winner}</>:<span style={{color:C.p.border2,fontSize:13}}>Nie wybrano</span>}</div>
               </div>
               <div style={C.card({border:'1px solid #0e3050',background:'#0b1520'})}>
                 <div style={{...C.muted,fontSize:11}}>⚽ KRAJ TOP STRZELCA</div>
-                <div style={{...C.sky,fontSize:16,fontWeight:700,marginTop:4}}>{pred.topScorerCountry?<><Flag team={pred.topScorerCountry} size={16}/>{pred.topScorerCountry}</>:<span style={{color:'#2a3f55',fontSize:13}}>Nie wybrano</span>}</div>
+                <div style={{...C.sky,fontSize:16,fontWeight:700,marginTop:4}}>{pred.topScorerCountry?<><Flag team={pred.topScorerCountry} size={16}/>{pred.topScorerCountry}</>:<span style={{color:C.p.border2,fontSize:13}}>Nie wybrano</span>}</div>
               </div>
             </div>
           </div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <button onClick={()=>setStep(3)} style={C.btn('#1e2d3d','#ccc')}>← Edytuj</button>
+            <button onClick={()=>setStep(3)} style={C.btn(C.p.card2,C.p.text2)}>← Edytuj</button>
             <button onClick={handleSave} disabled={loading}
               style={{...C.btn('#00c850','#fff'),padding:'14px 36px',fontSize:16,boxShadow:'0 4px 20px rgba(0,200,80,0.3)',opacity:loading?0.7:1}}>
               {loading?'Zapisuję...':'💾 Zapisz i przejdź do rankingu!'}
