@@ -6,6 +6,7 @@ import {
   EMPTY_PRED, EMPTY_RESULTS, MATCHES, matchKey,
   GROUP_LOCK_UTC, KNOCKOUT_LOCK_UTC,
   isGroupLocked, isKnockoutLocked, isMatchLocked, getMatchLock, formatLockTime,
+  getMatchKickoff, isMatchKickoffPassed,
   calcScore,
 } from './data/schedule'
 
@@ -502,7 +503,7 @@ export default function App() {
   const setSF  = (i, t)   => { if (!isKnockoutLocked()) { const sf=[...pred.semifinalists]; sf[i]=t; setPred(p=>({...p,semifinalists:sf})) } }
   const setKey = (k, v)   => { if (!isKnockoutLocked()) setPred(p => ({...p,[k]:v})) }
   const setMatchScore = (g, m, side, val) => {
-    if (isMatchLocked(g, m.matchday)) return
+    if (isMatchKickoffPassed(g, m)) return
     setSaved(false)
     const key = matchKey(g, m)
     const num = val.replace(/\D/g,'')
@@ -557,7 +558,9 @@ export default function App() {
   const getNextLock = () => {
     const now = new Date()
     const candidates = [
-      ...GROUP_LETTERS.flatMap(g => [1, 2, 3].map(md => ({ time: getMatchLock(g, md), label: `Gr.${g} kol.${md}` }))),
+      ...GROUP_LETTERS.flatMap(g =>
+        MATCHES[g].map(m => ({ time: getMatchKickoff(g, m), label: `Gr.${g} ${m.home}` }))
+      ),
       { time: KNOCKOUT_LOCK_UTC, label: 'Bonus' },
     ]
     return candidates.filter(l => l.time > now).sort((a, b) => a.time - b.time)[0] || null
@@ -783,7 +786,7 @@ export default function App() {
                       {hasResult ? `${actual.h}:${actual.a}` : '—'}
                     </td>
                     {scoredPreds.map(p => {
-                      const locked = isMatchLocked(m.group, m.matchday)
+                      const locked = isMatchKickoffPassed(m.group, m)
                       const isMe = p.username === username
                       const visible = locked || isMe
                       const pred = p.data?.matchScores?.[m.key]
@@ -1538,12 +1541,12 @@ export default function App() {
               </span>
             </div>
             {[1,2,3].map(md => {
-              const mdLocked = isMatchLocked(matchGroup, md)
+              const mdFirstLock = getMatchLock(matchGroup, md)
               return (
                 <div key={md} style={{paddingTop:md>1?14:0,borderTop:md>1?'1px solid #1e2d3d':'none',marginBottom:4}}>
                   <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
                     <span style={{...C.muted, fontSize:12, fontWeight:600}}>Kolejka {md}</span>
-                    <LockBadge lockTime={getMatchLock(matchGroup,md)}/>
+                    <LockBadge lockTime={mdFirstLock}/>
                   </div>
                   {MATCHES[matchGroup].filter(m=>m.matchday===md).map(m => {
                     const key   = matchKey(matchGroup, m)
@@ -1551,6 +1554,7 @@ export default function App() {
                     const actual= results.matchScores?.[key]
                     const filled = score.h!==''&&score.a!==''
                     const hasResult = actual?.h!==''&&actual?.a!==''
+                    const matchLocked = isMatchKickoffPassed(matchGroup, m)
                     let pts = null
                     if (hasResult && filled) {
                       const s = calcScore({matchScores:{[key]:score}},{matchScores:{[key]:actual}})
@@ -1564,14 +1568,14 @@ export default function App() {
                         border: filled?'1px solid rgba(212,160,23,0.2)':'1px solid transparent',
                         borderRadius:8,
                       }}>
-                        <span style={{textAlign:'right',fontSize:14,color:filled?'#e2e8f0':mdLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
+                        <span style={{textAlign:'right',fontSize:14,color:filled?'#e2e8f0':matchLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
                           <Flag team={m.home}/>{m.home}
                         </span>
                         <div style={{display:'flex', alignItems:'center', gap:5, flexDirection:'column'}}>
                           <div style={{display:'flex', alignItems:'center', gap:5}}>
-                            <ScoreInput val={score.h} onChange={v=>setMatchScore(matchGroup,m,'h',v)} locked={mdLocked}/>
+                            <ScoreInput val={score.h} onChange={v=>setMatchScore(matchGroup,m,'h',v)} locked={matchLocked}/>
                             <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
-                            <ScoreInput val={score.a} onChange={v=>setMatchScore(matchGroup,m,'a',v)} locked={mdLocked}/>
+                            <ScoreInput val={score.a} onChange={v=>setMatchScore(matchGroup,m,'a',v)} locked={matchLocked}/>
                           </div>
                           {hasResult && (
                             <div style={{display:'flex', alignItems:'center', gap:6, marginTop:4}}>
@@ -1594,7 +1598,7 @@ export default function App() {
                             </div>
                           )}
                         </div>
-                        <span style={{textAlign:'left',fontSize:14,color:filled?'#e2e8f0':mdLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
+                        <span style={{textAlign:'left',fontSize:14,color:filled?'#e2e8f0':matchLocked?'#4a5568':'#bcc6d4',fontWeight:filled?600:400}}>
                           <Flag team={m.away}/>{m.away}
                         </span>
                       </div>

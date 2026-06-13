@@ -1,36 +1,75 @@
 // ─── BLOKADY TYPOWANIA ────────────────────────────────────────────────────────
-// Blokada zwycięzcy grupy = kickoff pierwszego meczu w tej grupie (UTC)
-// Źródło: FIFA official schedule / kickoffclock.com
-//
-// Matchday 1 group stage:
-// A: Jun 11 19:00 – Mexico vs South Africa
-// B: Jun 12 19:00 – Canada vs Bosnia & Herz.
-// C: Jun 13 22:00 – Brazil vs Morocco
-// D: Jun 13 01:00 – USA vs Paraguay
-// E: Jun 14 17:00 – Germany vs Curaçao
-// F: Jun 14 20:00 – Netherlands vs Japan
-// G: Jun 15 22:00 – Belgium vs Egypt
-// H: Jun 15 17:00 – Spain vs Cape Verde
-// I: Jun 16 19:00 – France vs Senegal
-// J: Jun 17 01:00 – Argentina vs Algeria
-// K: Jun 17 17:00 – Portugal vs DR Congo  [fix: DR Congo in K, Iraq in I]
-// L: Jun 17 20:00 – England vs Croatia
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const GROUP_LOCK_UTC = {
-  A: new Date('2026-06-11T19:00:00Z'),
-  B: new Date('2026-06-12T19:00:00Z'),
-  C: new Date('2026-06-13T22:00:00Z'),
-  D: new Date('2026-06-13T01:00:00Z'),
-  E: new Date('2026-06-14T17:00:00Z'),
-  F: new Date('2026-06-14T20:00:00Z'),
-  G: new Date('2026-06-15T22:00:00Z'),
-  H: new Date('2026-06-15T17:00:00Z'),
-  I: new Date('2026-06-16T19:00:00Z'),
-  J: new Date('2026-06-17T01:00:00Z'),
-  K: new Date('2026-06-17T17:00:00Z'),
-  L: new Date('2026-06-17T20:00:00Z'),
+// Kickoffy wszystkich meczy grupowych (UTC). Źródło: oficjalny terminarz FIFA.
+// times[0] = mecz gdzie T0 gra u siebie (T0 = GROUPS[g][0])
+// times[1] = drugi mecz w kolejce (T0 nie gra lub gra na wyjeździe w MD2/MD3)
+// MD3 — oba mecze zawsze jednocześnie (reguła FIFA)
+export const MATCHDAY_KICKOFFS = {
+  A: {
+    1: [new Date('2026-06-11T19:00:00Z'), new Date('2026-06-12T02:00:00Z')],
+    2: [new Date('2026-06-18T16:00:00Z'), new Date('2026-06-19T01:00:00Z')],
+    3: [new Date('2026-06-25T01:00:00Z'), new Date('2026-06-25T01:00:00Z')],
+  },
+  B: {
+    1: [new Date('2026-06-12T19:00:00Z'), new Date('2026-06-13T19:00:00Z')],
+    2: [new Date('2026-06-18T19:00:00Z'), new Date('2026-06-18T22:00:00Z')],
+    3: [new Date('2026-06-24T19:00:00Z'), new Date('2026-06-24T19:00:00Z')],
+  },
+  C: {
+    1: [new Date('2026-06-13T22:00:00Z'), new Date('2026-06-14T01:00:00Z')],
+    2: [new Date('2026-06-19T22:00:00Z'), new Date('2026-06-20T01:00:00Z')],
+    3: [new Date('2026-06-24T22:00:00Z'), new Date('2026-06-24T22:00:00Z')],
+  },
+  D: {
+    1: [new Date('2026-06-13T01:00:00Z'), new Date('2026-06-13T04:00:00Z')],
+    2: [new Date('2026-06-19T04:00:00Z'), new Date('2026-06-19T19:00:00Z')],
+    3: [new Date('2026-06-26T02:00:00Z'), new Date('2026-06-26T02:00:00Z')],
+  },
+  E: {
+    1: [new Date('2026-06-14T17:00:00Z'), new Date('2026-06-14T23:00:00Z')],
+    2: [new Date('2026-06-20T22:00:00Z'), new Date('2026-06-21T00:00:00Z')],
+    3: [new Date('2026-06-25T22:00:00Z'), new Date('2026-06-25T22:00:00Z')],
+  },
+  F: {
+    1: [new Date('2026-06-14T20:00:00Z'), new Date('2026-06-15T02:00:00Z')],
+    2: [new Date('2026-06-20T04:00:00Z'), new Date('2026-06-20T17:00:00Z')],
+    3: [new Date('2026-06-25T23:00:00Z'), new Date('2026-06-25T23:00:00Z')],
+  },
+  G: {
+    1: [new Date('2026-06-15T22:00:00Z'), new Date('2026-06-16T01:00:00Z')],
+    2: [new Date('2026-06-21T23:00:00Z'), new Date('2026-06-22T01:00:00Z')],
+    3: [new Date('2026-06-27T03:00:00Z'), new Date('2026-06-27T03:00:00Z')],
+  },
+  H: {
+    1: [new Date('2026-06-15T17:00:00Z'), new Date('2026-06-15T22:00:00Z')],
+    2: [new Date('2026-06-21T16:00:00Z'), new Date('2026-06-21T22:00:00Z')],
+    3: [new Date('2026-06-27T00:00:00Z'), new Date('2026-06-27T00:00:00Z')],
+  },
+  I: {
+    1: [new Date('2026-06-16T19:00:00Z'), new Date('2026-06-16T22:00:00Z')],
+    2: [new Date('2026-06-22T21:00:00Z'), new Date('2026-06-23T00:00:00Z')],
+    3: [new Date('2026-06-26T19:00:00Z'), new Date('2026-06-26T19:00:00Z')],
+  },
+  J: {
+    1: [new Date('2026-06-17T01:00:00Z'), new Date('2026-06-17T04:00:00Z')],
+    2: [new Date('2026-06-22T17:00:00Z'), new Date('2026-06-23T03:00:00Z')],
+    3: [new Date('2026-06-28T02:00:00Z'), new Date('2026-06-28T02:00:00Z')],
+  },
+  K: {
+    1: [new Date('2026-06-17T17:00:00Z'), new Date('2026-06-18T02:00:00Z')],
+    2: [new Date('2026-06-23T17:00:00Z'), new Date('2026-06-24T02:00:00Z')],
+    3: [new Date('2026-06-27T23:30:00Z'), new Date('2026-06-27T23:30:00Z')],
+  },
+  L: {
+    1: [new Date('2026-06-17T20:00:00Z'), new Date('2026-06-17T23:00:00Z')],
+    2: [new Date('2026-06-23T20:00:00Z'), new Date('2026-06-23T23:00:00Z')],
+    3: [new Date('2026-06-27T21:00:00Z'), new Date('2026-06-27T21:00:00Z')],
+  },
 }
+
+// GROUP_LOCK_UTC = kickoff pierwszego meczu grupy (= MATCHDAY_KICKOFFS[g][1][0])
+export const GROUP_LOCK_UTC = Object.fromEntries(
+  Object.entries(MATCHDAY_KICKOFFS).map(([g, mds]) => [g, mds[1][0]])
+)
 
 // Typowania fazowe (półfinały, finaliści, mistrz, top strzelec)
 // Blokada = 12 czerwca 2026 20:00 CET (18:00 UTC)
@@ -175,14 +214,19 @@ export function calcScore(pred, results) {
 export const isGroupLocked = (group) => new Date() >= GROUP_LOCK_UTC[group]
 export const isKnockoutLocked = () => new Date() >= KNOCKOUT_LOCK_UTC
 
-// Blokada konkretnej kolejki w grupie (MD1 = kickoff 1. meczu, MD2 = +5 dni, MD3 = +10 dni)
+// Blokada kolejki = kickoff najwcześniejszego meczu w danej kolejce
 export const getMatchLock = (g, matchday) => {
-  const base = GROUP_LOCK_UTC[g]
-  if (matchday === 2) return new Date(base.getTime() + 5 * 24 * 60 * 60 * 1000)
-  if (matchday === 3) return new Date(base.getTime() + 10 * 24 * 60 * 60 * 1000)
-  return base
+  const [t0, t1] = MATCHDAY_KICKOFFS[g][matchday]
+  return t0 < t1 ? t0 : t1
 }
 export const isMatchLocked = (g, matchday) => new Date() >= getMatchLock(g, matchday)
+
+// Blokada konkretnego meczu = jego własny kickoff
+export const getMatchKickoff = (g, m) => {
+  const idx = m.home === GROUPS[g][0] ? 0 : 1
+  return MATCHDAY_KICKOFFS[g][m.matchday][idx]
+}
+export const isMatchKickoffPassed = (g, m) => new Date() >= getMatchKickoff(g, m)
 
 export const formatLockTime = (dt) => {
   if (!dt) return ''
