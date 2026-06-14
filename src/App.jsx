@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import {
   GROUPS, FLAGS, FLAG_CODES, SHORT_NAMES, GROUP_LETTERS, ALL_TEAMS,
-  SCORING_MATCHES, SCORING_BONUS,
+  SCORING_MATCHES, SCORING_BONUS, SCORING_KO, KO_MATCH_SLOTS,
   EMPTY_PRED, EMPTY_RESULTS, MATCHES, matchKey,
   GROUP_LOCK_UTC, KNOCKOUT_LOCK_UTC,
   isGroupLocked, isKnockoutLocked, isMatchLocked, getMatchLock, formatLockTime,
@@ -383,6 +383,7 @@ export default function App() {
         matchScores:   { ...EMPTY_RESULTS.matchScores,   ...(data.data.matchScores  || {}) },
         groupWinners:  { ...EMPTY_RESULTS.groupWinners,  ...(data.data.groupWinners || {}) },
         semifinalists: data.data.semifinalists || ['','','',''],
+        koMatches:     { ...(data.data.koMatches || {}) },
       }
       setResults(r)
       setResultsDraft(r)
@@ -461,8 +462,9 @@ export default function App() {
             if (storedPin && storedPin !== pin) { localStorage.removeItem('mundial_session'); return }
             setPred({
               ...EMPTY_PRED, ...data.data,
-              groupWinners: { ...EMPTY_PRED.groupWinners, ...(data.data.groupWinners || {}) },
-              matchScores:  { ...EMPTY_PRED.matchScores,  ...(data.data.matchScores  || {}) },
+              groupWinners:   { ...EMPTY_PRED.groupWinners,   ...(data.data.groupWinners   || {}) },
+              matchScores:    { ...EMPTY_PRED.matchScores,    ...(data.data.matchScores    || {}) },
+              koMatchScores:  { ...(data.data.koMatchScores  || {}) },
             })
             setSaved(true)
           }
@@ -501,8 +503,9 @@ export default function App() {
       if (storedPin && storedPin !== pin) { setLoginErr('Nieprawidłowy PIN. Spróbuj ponownie.'); return }
       setPred({
         ...EMPTY_PRED, ...data.data,
-        groupWinners: { ...EMPTY_PRED.groupWinners, ...(data.data.groupWinners || {}) },
-        matchScores:  { ...EMPTY_PRED.matchScores,  ...(data.data.matchScores  || {}) },
+        groupWinners:   { ...EMPTY_PRED.groupWinners,   ...(data.data.groupWinners   || {}) },
+        matchScores:    { ...EMPTY_PRED.matchScores,    ...(data.data.matchScores    || {}) },
+        koMatchScores:  { ...(data.data.koMatchScores  || {}) },
       })
       setSaved(true)
     } else {
@@ -583,6 +586,17 @@ export default function App() {
   const setResGW  = (g, t)   => setResultsDraft(r => ({ ...r, groupWinners: {...r.groupWinners, [g]:t} }))
   const setResSF  = (i, t)   => { const sf=[...resultsDraft.semifinalists]; sf[i]=t; setResultsDraft(r=>({...r,semifinalists:sf})) }
   const setResKey = (k, v)   => setResultsDraft(r => ({...r, [k]:v}))
+  const setResKO  = (id, field, val) =>
+    setResultsDraft(r => ({ ...r, koMatches: { ...r.koMatches, [id]: { ...(r.koMatches?.[id] || {}), [field]: val } } }))
+
+  // ── Pred mutators (user) ──────────────────────────────────────────────────
+  const setKOScore = (id, field, val) => {
+    const num = val.replace(/\D/g,'')
+    setPred(p => ({ ...p, koMatchScores: { ...p.koMatchScores, [id]: { ...(p.koMatchScores?.[id]||{h:'',a:'',adv:''}), [field]: num } } }))
+    setSaved(false)
+  }
+  const setKOAdv = (id, val) =>
+    setPred(p => ({ ...p, koMatchScores: { ...p.koMatchScores, [id]: { ...(p.koMatchScores?.[id]||{h:'',a:'',adv:''}), adv: val } } }))
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const matchFilled       = Object.values(pred.matchScores||{}).filter(s=>s.h!==''&&s.a!=='').length
@@ -1395,10 +1409,10 @@ export default function App() {
         )}
 
         {/* Admin tabs */}
-        <div style={{display:'flex', gap:4, marginBottom:20}}>
-          {['⚽ Mecze','🏆 Grupy','⚔️ Puchar','🥇 Mistrz'].map((label,i) => (
+        <div style={{display:'flex', gap:4, marginBottom:20, flexWrap:'wrap'}}>
+          {['⚽ Mecze','🏆 Grupy','⚔️ Bonus','🥇 Mistrz','🗓️ KO mecze'].map((label,i) => (
             <button key={i} onClick={()=>setAdminStep(i)} style={{
-              flex:1, padding:'10px 4px',
+              flex:1, minWidth:80, padding:'10px 4px',
               background: adminStep===i?'#d4a017':'#161d27',
               color: adminStep===i?'#000':'#6b7a8d',
               border:`1px solid ${adminStep===i?'#d4a017':C.p.border}`,
@@ -1560,6 +1574,81 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* ── ADMIN: KO MECZE ── */}
+        {adminStep === 4 && (() => {
+          const rounds = [...new Set(KO_MATCH_SLOTS.map(s => s.round))]
+          return (
+            <div>
+              <p style={{...C.muted, fontSize:12, marginBottom:16}}>
+                Aktywuj slot wpisując drużyny i kickoff. Wynik + awansujący wpisz po meczu.
+                Typowania graczy blokują się automatycznie w momencie kickoffu.
+              </p>
+              {rounds.map(round => {
+                const slots = KO_MATCH_SLOTS.filter(s => s.round === round)
+                return (
+                  <div key={round} style={{marginBottom:20}}>
+                    <div style={{fontSize:11, fontWeight:800, color:C.p.gold, letterSpacing:1, marginBottom:8}}>
+                      {slots[0].label.toUpperCase()}
+                    </div>
+                    <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                      {slots.map(slot => {
+                        const km = resultsDraft.koMatches?.[slot.id] || {}
+                        const active = !!(km.home && km.away)
+                        const hasResult = active && (km.scoreH !== '' && km.scoreH != null && km.scoreA !== '' && km.scoreA != null)
+                        const isDrawResult = hasResult && parseInt(km.scoreH) === parseInt(km.scoreA)
+                        return (
+                          <div key={slot.id} style={{
+                            ...C.card({padding:'12px 14px'}),
+                            border: `1px solid ${active ? C.p.border2 : C.p.border}`,
+                            opacity: 1,
+                          }}>
+                            <div style={{display:'grid', gridTemplateColumns:'auto 1fr 1fr auto', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+                              <span style={{fontSize:11, fontWeight:800, color:C.p.gold, minWidth:36}}>#{slot.num}</span>
+                              <input placeholder="Drużyna gospodarzy" value={km.home||''}
+                                onChange={e=>setResKO(slot.id,'home',e.target.value)}
+                                style={{...C.inp, fontSize:12, padding:'6px 8px'}}/>
+                              <input placeholder="Drużyna gości" value={km.away||''}
+                                onChange={e=>setResKO(slot.id,'away',e.target.value)}
+                                style={{...C.inp, fontSize:12, padding:'6px 8px'}}/>
+                              <input type="datetime-local" value={km.kickoff ? new Date(km.kickoff).toISOString().slice(0,16) : ''}
+                                onChange={e=>setResKO(slot.id,'kickoff', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                                style={{...C.inp, fontSize:11, padding:'6px 8px'}}/>
+                            </div>
+                            {active && (
+                              <div style={{display:'flex', alignItems:'center', gap:10, marginTop:8, flexWrap:'wrap'}}>
+                                <span style={{...C.muted, fontSize:11}}>Wynik (90 min):</span>
+                                <input value={km.scoreH??''} onChange={e=>setResKO(slot.id,'scoreH',e.target.value.replace(/\D/g,''))}
+                                  placeholder="G" style={{...C.inp, width:44, textAlign:'center', fontSize:14, fontWeight:700, padding:'4px'}}/>
+                                <span style={{...C.muted, fontWeight:800}}>:</span>
+                                <input value={km.scoreA??''} onChange={e=>setResKO(slot.id,'scoreA',e.target.value.replace(/\D/g,''))}
+                                  placeholder="G" style={{...C.inp, width:44, textAlign:'center', fontSize:14, fontWeight:700, padding:'4px'}}/>
+                                {isDrawResult && <>
+                                  <span style={{...C.muted, fontSize:11}}>Awansuje:</span>
+                                  <select value={km.adv||''} onChange={e=>setResKO(slot.id,'adv',e.target.value)}
+                                    style={{...C.sel, fontSize:12, padding:'4px 8px'}}>
+                                    <option value="">— wybierz —</option>
+                                    <option value={km.home}>{km.home}</option>
+                                    <option value={km.away}>{km.away}</option>
+                                  </select>
+                                </>}
+                                {hasResult && !isDrawResult && (
+                                  <span style={{fontSize:11, color:C.p.green}}>
+                                    ✓ Awansuje: {parseInt(km.scoreH) > parseInt(km.scoreA) ? km.home : km.away}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         <div style={{marginTop:24, display:'flex', justifyContent:'flex-end', gap:12}}>
           <button onClick={() => setView('leaderboard')} style={C.btn(C.p.card2,C.p.text2)}>
@@ -2010,7 +2099,8 @@ export default function App() {
           {[
             {icon:'⚽', label:'Mecze',  ok: matchFilled > 0},
             {icon:'🏆', label:'Grupy',  ok: doneCount > 0},
-            {icon:'⚔️', label:'Puchar', ok: semifinalistsDone},
+            {icon:'⚔️', label:'Bonus',  ok: semifinalistsDone},
+            {icon:'🗓️', label:'KO',     ok: Object.keys(pred.koMatchScores||{}).some(k=>{const s=pred.koMatchScores[k];return s?.h!==''&&s?.a!==''})},
             {icon:'🥇', label:'Mistrz', ok: championDone},
             {icon:'📋', label:'Zapis',  ok: false},
           ].map(({icon,label,ok},i) => (
@@ -2225,12 +2315,173 @@ export default function App() {
           </div>
           <div style={{display:'flex', justifyContent:'space-between'}}>
             <button onClick={()=>setStep(1)} style={C.btn(C.p.card2,C.p.text2)}>← Grupy</button>
-            <button onClick={()=>setStep(3)} style={C.btn('#d4a017','#000')}>Dalej → Mistrz świata</button>
+            <button onClick={()=>setStep(3)} style={C.btn('#d4a017','#000')}>Dalej → KO mecze →</button>
           </div>
         </>)}
 
-        {/* ── KROK 3: MISTRZ ────────────────────────────────────────────── */}
-        {step === 3 && (<>
+        {/* ── KROK 3: KO MECZE ──────────────────────────────────────────── */}
+        {step === 3 && (() => {
+          const activeKO = KO_MATCH_SLOTS.filter(s => {
+            const km = results.koMatches?.[s.id]
+            return km?.home && km?.away
+          })
+          return (<>
+            <div style={{marginBottom:20}}>
+              <h3 style={{margin:'0 0 6px'}}>🗓️ Mecze fazy pucharowej</h3>
+              <p style={{...C.muted, margin:0, fontSize:13}}>
+                Typuj wynik po czasie regulaminowym (90 min + czas doliczony przez sędziego).
+                Jeśli typujesz remis — wybierz kto awansuje (przez dogrywkę/karne).
+              </p>
+            </div>
+
+            {/* Zasady punktacji */}
+            <div style={{...C.card({marginBottom:20, padding:'14px 16px'}), border:`1px solid ${C.p.border2}`}}>
+              <div style={{fontSize:12, fontWeight:800, color:C.p.gold, marginBottom:10, letterSpacing:0.5}}>
+                📊 ZASADY PUNKTACJI — MECZE PUCHAROWE
+              </div>
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                {SCORING_KO.map((s,i) => (
+                  <div key={i} style={{display:'flex', justifyContent:'space-between', alignItems:'center',
+                    padding:'6px 10px', borderRadius:6,
+                    background: i===0?C.p.greenBg : i===1?'rgba(103,215,245,0.08)' : i===2?'rgba(212,160,23,0.08)' : C.p.card3,
+                  }}>
+                    <span style={{fontSize:12, color:C.p.text2}}>{s.label}</span>
+                    <span style={{fontSize:14, fontWeight:800,
+                      color: i===0?C.p.green : i===1?C.p.sky : i===2?C.p.gold : C.p.dim,
+                      minWidth:40, textAlign:'right'}}>
+                      {s.pts > 0 ? `+${s.pts} pkt` : '0 pkt'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginTop:10, fontSize:11, color:C.p.muted, borderTop:`1px solid ${C.p.border}`, paddingTop:8}}>
+                💡 Czas doliczony przez sędziego (np. 90+6 min) wlicza się do wyniku regulaminowego.
+                Dogrywka i karne <strong style={{color:C.p.text}}>nie są typowane</strong> — tylko awansujący.
+              </div>
+            </div>
+
+            {activeKO.length === 0 ? (
+              <div style={{...C.card(), textAlign:'center', padding:40}}>
+                <div style={{fontSize:32, marginBottom:12}}>⏳</div>
+                <div style={{color:C.p.muted}}>Mecze fazy pucharowej pojawią się tutaj gdy znane będą drużyny (po zakończeniu fazy grupowej).</div>
+              </div>
+            ) : (
+              <div style={{display:'flex', flexDirection:'column', gap:10}}>
+                {(() => {
+                  const rounds = [...new Set(activeKO.map(s => s.round))]
+                  return rounds.map(round => {
+                    const roundSlots = activeKO.filter(s => s.round === round)
+                    return (
+                      <div key={round} style={{marginBottom:8}}>
+                        <div style={{fontSize:11, fontWeight:800, color:C.p.gold, letterSpacing:1, marginBottom:8}}>
+                          {roundSlots[0].label.toUpperCase()}
+                        </div>
+                        {roundSlots.map(slot => {
+                          const km = results.koMatches[slot.id]
+                          const kickoff = km.kickoff ? new Date(km.kickoff) : null
+                          const locked  = kickoff ? new Date() >= kickoff : false
+                          const predKO  = pred.koMatchScores?.[slot.id] || { h:'', a:'', adv:'' }
+                          const filled  = predKO.h !== '' && predKO.a !== ''
+                          const isDraw  = filled && predKO.h === predKO.a
+                          const resKM   = results.koMatches?.[slot.id]
+                          const hasResult = resKM && (resKM.scoreH !== '' && resKM.scoreH != null)
+                          const dateStr = kickoff ? kickoff.toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Warsaw'}) : null
+
+                          let pts = null
+                          if (hasResult && filled) {
+                            const ah = parseInt(resKM.scoreH), aa = parseInt(resKM.scoreA)
+                            const ph = parseInt(predKO.h),     pa = parseInt(predKO.a)
+                            const actualAdv = ah > aa ? km.home : aa > ah ? km.away : (resKM.adv||'')
+                            const predAdv   = ph > pa ? km.home : pa > ph ? km.away : (predKO.adv||'')
+                            if (ph===ah && pa===aa && predAdv===actualAdv) pts = 5
+                            else if (ph===ah && pa===aa)                   pts = 3
+                            else if (predAdv && predAdv===actualAdv)       pts = 2
+                            else                                            pts = 0
+                          }
+
+                          return (
+                            <div key={slot.id} style={{
+                              ...C.card({padding:'12px 16px'}),
+                              border:`1px solid ${filled ? C.p.border2 : C.p.border}`,
+                              opacity: locked && !filled ? 0.7 : 1,
+                            }}>
+                              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, flexWrap:'wrap', gap:6}}>
+                                <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                                  <span style={{fontSize:11, fontWeight:800, color:C.p.gold}}>{slot.label} #{slot.num}</span>
+                                  {dateStr && <span style={{fontSize:11, color:C.p.dim}}>📅 {dateStr} CET</span>}
+                                </div>
+                                {locked
+                                  ? <span style={{fontSize:10, fontWeight:700, color:C.p.red, background:C.p.redBg, borderRadius:4, padding:'2px 7px'}}>🔒 Zablokowane</span>
+                                  : <span style={{fontSize:10, fontWeight:700, color:C.p.green, background:C.p.greenBg, borderRadius:4, padding:'2px 7px'}}>🟢 Otwarte</span>
+                                }
+                              </div>
+                              <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:8}}>
+                                <div style={{textAlign:'right', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:6}}>
+                                  <span style={{fontSize:14, fontWeight:700, color:C.p.text}}>{km.home}</span>
+                                  <Flag team={km.home} size={22}/>
+                                </div>
+                                <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:4}}>
+                                  <div style={{display:'flex', alignItems:'center', gap:6}}>
+                                    <ScoreInput val={predKO.h} onChange={v=>setKOScore(slot.id,'h',v)} locked={locked}/>
+                                    <span style={{...C.muted, fontWeight:800, fontSize:18}}>:</span>
+                                    <ScoreInput val={predKO.a} onChange={v=>setKOScore(slot.id,'a',v)} locked={locked}/>
+                                  </div>
+                                  {isDraw && !locked && (
+                                    <select value={predKO.adv||''} onChange={e=>{setKOAdv(slot.id,e.target.value);setSaved(false)}}
+                                      style={{...C.sel, fontSize:11, padding:'3px 6px', marginTop:2}}>
+                                      <option value="">kto awansuje?</option>
+                                      <option value={km.home}>{km.home}</option>
+                                      <option value={km.away}>{km.away}</option>
+                                    </select>
+                                  )}
+                                  {isDraw && locked && predKO.adv && (
+                                    <span style={{fontSize:11, color:C.p.sky}}>↑ {predKO.adv}</span>
+                                  )}
+                                </div>
+                                <div style={{textAlign:'left', display:'flex', alignItems:'center', gap:6}}>
+                                  <Flag team={km.away} size={22}/>
+                                  <span style={{fontSize:14, fontWeight:700, color:C.p.text}}>{km.away}</span>
+                                </div>
+                              </div>
+                              {hasResult && (
+                                <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginTop:10, paddingTop:10, borderTop:`1px solid ${C.p.border}`}}>
+                                  <span style={{fontSize:11, color:C.p.dim}}>wynik</span>
+                                  <span style={{fontSize:16, fontWeight:800,
+                                    color: pts===5?C.p.green: pts===3?C.p.sky: pts===2?C.p.gold: pts===0?C.p.red:C.p.text2,
+                                    background: pts===5?C.p.greenBg: pts===3?'rgba(103,215,245,0.12)': pts===2?'rgba(212,160,23,0.12)': pts===0?C.p.redBg:C.p.card3,
+                                    borderRadius:6, padding:'2px 10px',
+                                  }}>
+                                    {resKM.scoreH}:{resKM.scoreA}
+                                    {resKM.adv && parseInt(resKM.scoreH)===parseInt(resKM.scoreA) && ` (${resKM.adv})`}
+                                  </span>
+                                  {pts !== null && filled
+                                    ? <span style={{fontWeight:700, fontSize:13,
+                                        color: pts>=3?C.p.green: pts===2?C.p.gold:C.p.red}}>
+                                        {pts>0?`+${pts} pkt`:'✗ 0 pkt'}
+                                      </span>
+                                    : !filled && <span style={{fontSize:11, color:C.p.dim}}>(brak typowania)</span>
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            )}
+
+            <div style={{display:'flex', justifyContent:'space-between', marginTop:20}}>
+              <button onClick={()=>setStep(2)} style={C.btn(C.p.card2,C.p.text2)}>← Bonus puchar</button>
+              <button onClick={()=>setStep(4)} style={C.btn('#d4a017','#000')}>Dalej → Mistrz świata</button>
+            </div>
+          </>)
+        })()}
+
+        {/* ── KROK 4: MISTRZ ────────────────────────────────────────────── */}
+        {step === 4 && (<>
           <KnockoutDeadlineBanner/>
           <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
             <h3 style={{margin:0}}>🥇 Mistrz Świata 2026</h3>
@@ -2256,13 +2507,13 @@ export default function App() {
             </div>
           </div>
           <div style={{display:'flex', justifyContent:'space-between'}}>
-            <button onClick={()=>setStep(2)} style={C.btn(C.p.card2,C.p.text2)}>← Puchar</button>
-            <button onClick={()=>setStep(4)} style={C.btn('#d4a017','#000')}>Dalej → Podsumowanie</button>
+            <button onClick={()=>setStep(3)} style={C.btn(C.p.card2,C.p.text2)}>← KO mecze</button>
+            <button onClick={()=>setStep(5)} style={C.btn('#d4a017','#000')}>Dalej → Podsumowanie</button>
           </div>
         </>)}
 
-        {/* ── KROK 4: PODSUMOWANIE ──────────────────────────────────────── */}
-        {step === 4 && (<>
+        {/* ── KROK 5: PODSUMOWANIE ──────────────────────────────────────── */}
+        {step === 5 && (<>
           <h3 style={{margin:'0 0 20px'}}>📋 Podsumowanie typowania</h3>
           <div style={C.card({marginBottom:14})}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:matchFilled>0?10:0}}>
@@ -2312,7 +2563,7 @@ export default function App() {
             </div>
           </div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <button onClick={()=>setStep(3)} style={C.btn(C.p.card2,C.p.text2)}>← Edytuj</button>
+            <button onClick={()=>setStep(4)} style={C.btn(C.p.card2,C.p.text2)}>← Edytuj</button>
             <button onClick={handleSave} disabled={loading}
               style={{...C.btn('#00c850','#fff'),padding:'14px 36px',fontSize:16,boxShadow:'0 4px 20px rgba(0,200,80,0.3)',opacity:loading?0.7:1}}>
               {loading?'Zapisuję...':'💾 Zapisz i przejdź do rankingu!'}

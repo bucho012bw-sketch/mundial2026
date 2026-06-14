@@ -169,7 +169,26 @@ export const SCORING_BONUS = [
   { label: 'Kraj top strzelca — BONUS', pts: 5 },
 ]
 
+export const SCORING_KO = [
+  { label: 'Dokładny wynik (90 min + czas dolicz.) + poprawny awansujący', pts: 5 },
+  { label: 'Dokładny wynik (90 min + czas dolicz.), błędny awansujący',   pts: 3 },
+  { label: 'Błędny wynik, poprawny awansujący',                            pts: 2 },
+  { label: 'Oba błędne',                                                   pts: 0 },
+]
+
 export const SCORING = [...SCORING_MATCHES, ...SCORING_BONUS]
+
+// ─── MECZE PUCHAROWE — SLOTY ──────────────────────────────────────────────────
+// 32 sloty (R32×16, R16×8, QF×4, SF×2, 3.miejsce×1, Finał×1)
+// Admin aktywuje slot wpisując drużyny + kickoff w panelu admina
+export const KO_MATCH_SLOTS = [
+  ...Array.from({ length: 16 }, (_, i) => ({ id: `r32_${i+1}`, round: 'R32',   label: 'Runda 32',          num: i+1 })),
+  ...Array.from({ length:  8 }, (_, i) => ({ id: `r16_${i+1}`, round: 'R16',   label: '1/8 Finału',        num: i+1 })),
+  ...Array.from({ length:  4 }, (_, i) => ({ id: `qf_${i+1}`,  round: 'QF',    label: 'Ćwierćfinał',       num: i+1 })),
+  ...Array.from({ length:  2 }, (_, i) => ({ id: `sf_${i+1}`,  round: 'SF',    label: 'Półfinał',          num: i+1 })),
+  { id: 'third', round: '3RD',   label: 'Mecz o 3. miejsce', num: 1 },
+  { id: 'final', round: 'FINAL', label: 'Finał',             num: 1 },
+]
 
 export const EMPTY_RESULTS = {
   matchScores: Object.fromEntries(
@@ -180,6 +199,7 @@ export const EMPTY_RESULTS = {
   groupWinners:    Object.fromEntries(GROUP_LETTERS.map(g => [g, ''])),
   semifinalists:   ['', '', '', ''],
   finalist1: '', finalist2: '', winner: '', topScorerCountry: '',
+  koMatches: {}, // { 'r32_1': { home, away, kickoff, scoreH, scoreA, adv } }
 }
 
 export function calcScore(pred, results) {
@@ -221,6 +241,24 @@ export function calcScore(pred, results) {
 
   if (pred.winner && pred.winner === results.winner) bonusPts += 10
   if (pred.topScorerCountry && pred.topScorerCountry === results.topScorerCountry) bonusPts += 5
+
+  // Mecze pucharowe: wynik po czasie regulaminowym + awansujący
+  const koMatches = results.koMatches || {}
+  Object.entries(koMatches).forEach(([id, match]) => {
+    if (!match?.home || !match?.away) return
+    if (match.scoreH === '' || match.scoreH == null || match.scoreA === '' || match.scoreA == null) return
+    const predKO = pred.koMatchScores?.[id]
+    if (!predKO || predKO.h === '' || predKO.a === '') return
+    const ah = parseInt(match.scoreH), aa = parseInt(match.scoreA)
+    const ph = parseInt(predKO.h),     pa = parseInt(predKO.a)
+    const actualAdv = ah > aa ? match.home : aa > ah ? match.away : (match.adv || '')
+    const predAdv   = ph > pa ? match.home : pa > ph ? match.away : (predKO.adv || '')
+    const exactScore = ph === ah && pa === aa
+    const correctAdv = actualAdv && predAdv && predAdv === actualAdv
+    if (exactScore && correctAdv)      matchPts += 5
+    else if (exactScore)               matchPts += 3
+    else if (correctAdv)               matchPts += 2
+  })
 
   return { matchPts, bonusPts, total: matchPts + bonusPts }
 }
@@ -264,4 +302,5 @@ export const EMPTY_PRED = {
       ms.map(m => [matchKey(g, m), { h: '', a: '' }])
     )
   ),
+  koMatchScores: {}, // sparse: { 'r32_1': { h, a, adv } }
 }
