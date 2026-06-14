@@ -462,7 +462,8 @@ export default function App() {
 
         const home = rev ? apiAway : apiHome
         const away = rev ? apiHome : apiAway
-        const ft   = m.score?.fullTime
+        // regularTime = czyste 90 min (fullTime dla KO może zawierać gole z dogrywki)
+        const ft   = m.score?.regularTime ?? m.score?.fullTime
         const scoreH = ft?.home != null ? String(rev ? ft.away : ft.home) : undefined
         const scoreA = ft?.away != null ? String(rev ? ft.home : ft.away) : undefined
 
@@ -926,8 +927,25 @@ export default function App() {
       { id:'final',    label:'Finał' },
       { id:'bonus',    label:'🏆 Bonus' },
     ]
-    const ptsColor = pts => pts===4?'#4ade80':pts===3?'#67d7f5':pts===2?'#f0b429':pts===0?'#f87171':'#6b7a8d'
-    const ptsBg    = pts => pts===4?'rgba(74,222,128,0.15)':pts===3?'rgba(103,215,245,0.12)':pts===2?'rgba(240,180,41,0.12)':pts===0?'rgba(248,113,113,0.12)':'transparent'
+    const ptsColor   = pts => pts===4?'#4ade80':pts===3?'#67d7f5':pts===2?'#f0b429':pts===0?'#f87171':'#6b7a8d'
+    const ptsBg      = pts => pts===4?'rgba(74,222,128,0.15)':pts===3?'rgba(103,215,245,0.12)':pts===2?'rgba(240,180,41,0.12)':pts===0?'rgba(248,113,113,0.12)':'transparent'
+    const koPtsColor = pts => pts===5?'#4ade80':pts===3?'#67d7f5':pts===2?'#f0b429':pts===0?'#f87171':'#6b7a8d'
+    const koPtsBg    = pts => pts===5?'rgba(74,222,128,0.15)':pts===3?'rgba(103,215,245,0.12)':pts===2?'rgba(240,180,41,0.12)':pts===0?'rgba(248,113,113,0.12)':'transparent'
+
+    const getKOMatchPts = (predData, slotId, km) => {
+      if (!km?.home || !km?.away) return null
+      if (km.scoreH === '' || km.scoreH == null || km.scoreA === '' || km.scoreA == null) return null
+      const predKO = predData?.koMatchScores?.[slotId]
+      if (!predKO || predKO.h === '' || predKO.a === '') return null
+      const ah = parseInt(km.scoreH), aa = parseInt(km.scoreA)
+      const ph = parseInt(predKO.h),   pa = parseInt(predKO.a)
+      const actualAdv = ah > aa ? km.home : aa > ah ? km.away : (km.adv || '')
+      const predAdv   = ph > pa ? km.home : pa > ph ? km.away : (predKO.adv || '')
+      if (ph===ah && pa===aa && predAdv && predAdv===actualAdv) return 5
+      if (ph===ah && pa===aa)                                   return 3
+      if (predAdv && actualAdv && predAdv===actualAdv)         return 2
+      return 0
+    }
 
     // Matchday tab renderer
     const MdTab = ({ md }) => {
@@ -1255,15 +1273,109 @@ export default function App() {
           {rankTab === 'md3' && <MdTab md={3}/>}
 
           {/* ── FAZY PUCHAROWE r32/r16/qf/third — placeholder ── */}
-          {['r32','r16','qf','third'].includes(rankTab) && (() => {
-            const labels = { r32:'1/16 finału', r16:'1/8 finału', qf:'Ćwierćfinały', third:'Mecz o 3. miejsce' }
-            const dates  = { r32:'28 cze – 4 lip', r16:'4–7 lip', qf:'9–12 lip', third:'18 lip' }
+          {['r32','r16','qf','sf','third','final'].includes(rankTab) && (() => {
+            const roundMap = { r32:'R32', r16:'R16', qf:'QF', sf:'SF', third:'3RD', final:'FINAL' }
+            const round = roundMap[rankTab]
+            const slots = KO_MATCH_SLOTS.filter(s => s.round === round)
+            const activeSlots = slots.filter(s => results.koMatches?.[s.id]?.home)
+
+            if (activeSlots.length === 0) {
+              const labels = { r32:'Runda 32', r16:'1/8 finału', qf:'Ćwierćfinały', sf:'Półfinały', third:'Mecz o 3. miejsce', final:'Finał' }
+              const dates  = { r32:'29 cze – 2 lip', r16:'4–7 lip', qf:'9–11 lip', sf:'14–15 lip', third:'18 lip', final:'19 lip' }
+              return (
+                <div style={{...C.card({border:`1px solid ${C.p.border}`}), textAlign:'center', padding:'40px 20px'}}>
+                  <div style={{fontSize:36, marginBottom:12}}>⚽</div>
+                  <div style={{...C.gold, fontWeight:800, fontSize:18, marginBottom:6}}>{labels[rankTab]}</div>
+                  <div style={{...C.muted, fontSize:13, marginBottom:8}}>{dates[rankTab]}</div>
+                  <div style={{color:C.p.dim, fontSize:13}}>Mecze pojawią się automatycznie gdy API poda pary drużyn.</div>
+                </div>
+              )
+            }
+
             return (
-              <div style={{...C.card({border:`1px solid ${C.p.border}`}), textAlign:'center', padding:'40px 20px'}}>
-                <div style={{fontSize:36, marginBottom:12}}>⚽</div>
-                <div style={{...C.gold, fontWeight:800, fontSize:18, marginBottom:6}}>{labels[rankTab]}</div>
-                <div style={{...C.muted, fontSize:13, marginBottom:16}}>{dates[rankTab]}</div>
-                <div style={{color:C.p.dim, fontSize:13}}>Typowanie meczów tej fazy pojawi się gdy znane będą pary</div>
+              <div style={{overflowX:'auto'}}>
+                <table style={{borderCollapse:'collapse', fontSize:12, minWidth:'100%'}}>
+                  <thead>
+                    <tr style={{background:C.p.card2}}>
+                      <th style={{padding:'6px 10px', textAlign:'left', color:'#d4a017', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card2, zIndex:2}}>Mecz</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:C.p.muted, whiteSpace:'nowrap', fontSize:11}}>Wynik (90')</th>
+                      {scoredPreds.map(p => (
+                        <th key={p.username} style={{padding:'6px 5px', textAlign:'center', color: p.username===username?C.p.gold:C.p.text, whiteSpace:'nowrap', maxWidth:70, overflow:'hidden', textOverflow:'ellipsis', fontSize:11}}>
+                          {p.username===username?'👤 ':''}{displayName(p.username)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeSlots.map(slot => {
+                      const km = results.koMatches[slot.id]
+                      const hasResult = km.scoreH !== '' && km.scoreH != null && km.scoreA !== '' && km.scoreA != null
+                      const locked = km.kickoff ? new Date() >= new Date(km.kickoff) : false
+                      return (
+                        <tr key={slot.id} style={{borderTop:`1px solid ${C.p.border}`}}>
+                          <td style={{padding:'6px 10px', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card, zIndex:1}}>
+                            <div style={{display:'flex', alignItems:'center', gap:5, flexWrap:'wrap'}}>
+                              <Flag team={km.home} size={16}/>
+                              <span style={{color:C.p.text2, fontWeight:600, fontSize:11}}>{SHORT_NAMES[km.home]||km.home}</span>
+                              <span style={{color:C.p.dim, fontSize:10}}>–</span>
+                              <Flag team={km.away} size={16}/>
+                              <span style={{color:C.p.text2, fontWeight:600, fontSize:11}}>{SHORT_NAMES[km.away]||km.away}</span>
+                            </div>
+                          </td>
+                          <td style={{padding:'7px 8px', textAlign:'center', fontWeight:700, color: hasResult?C.p.green:C.p.dim, whiteSpace:'nowrap'}}>
+                            {hasResult
+                              ? <>{km.scoreH}:{km.scoreA}{km.adv && parseInt(km.scoreH)===parseInt(km.scoreA) ? <span style={{fontSize:10, color:C.p.sky, marginLeft:4}}>({SHORT_NAMES[km.adv]||km.adv})</span> : ''}</>
+                              : '—'}
+                          </td>
+                          {scoredPreds.map(p => {
+                            const isMe = p.username === username
+                            const visible = locked || isMe
+                            if (!visible) return (
+                              <td key={p.username} style={{padding:'6px', textAlign:'center'}}>
+                                <span style={{color:C.p.border2, fontSize:12}}>🔒</span>
+                              </td>
+                            )
+                            const predKO = p.data?.koMatchScores?.[slot.id]
+                            const hasPred = !!(predKO && predKO.h !== '' && predKO.a !== '')
+                            const pts = getKOMatchPts(p.data, slot.id, km)
+                            const isDrawPred = hasPred && predKO.h === predKO.a
+                            return (
+                              <td key={p.username} style={{padding:'6px', textAlign:'center', background: pts !== null ? koPtsBg(pts) : 'transparent'}}>
+                                {hasPred
+                                  ? <span style={{fontWeight:600, color: pts !== null ? koPtsColor(pts) : C.p.muted, whiteSpace:'nowrap', fontSize:11}}>
+                                      {predKO.h}:{predKO.a}
+                                      {isDrawPred && predKO.adv && <span style={{fontSize:9, color:C.p.sky, marginLeft:2}}>({SHORT_NAMES[predKO.adv]||predKO.adv})</span>}
+                                      {pts !== null && <span style={{fontSize:9, marginLeft:3, opacity:0.85}}>{pts>0?`+${pts}`:''}</span>}
+                                    </span>
+                                  : <span style={{color:C.p.border2}}>—</span>
+                                }
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  {activeSlots.some(s => {
+                    const km = results.koMatches[s.id]
+                    return km.scoreH !== '' && km.scoreH != null
+                  }) && (
+                    <tfoot>
+                      <tr style={{borderTop:`2px solid ${C.p.gold}`, background:C.p.card2}}>
+                        <td colSpan={2} style={{padding:'8px 10px', color:C.p.gold, fontWeight:700, fontSize:12}}>Suma runda</td>
+                        {scoredPreds.map(p => {
+                          const sum = activeSlots.reduce((acc, slot) => acc + (getKOMatchPts(p.data, slot.id, results.koMatches[slot.id]) ?? 0), 0)
+                          return (
+                            <td key={p.username} style={{padding:'8px 6px', textAlign:'center', fontWeight:800, fontSize:14,
+                              color: sum>0?C.p.green:C.p.dim}}>
+                              {sum > 0 ? sum : '—'}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
               </div>
             )
           })()}
