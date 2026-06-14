@@ -1138,11 +1138,9 @@ export default function App() {
               ✅ {resultsEntered}/72 wyników
             </span>
           )}
-          {lastSync && (
-            <span title="Wyniki aktualizują się automatycznie co 10 minut" style={{fontSize:11, color:C.p.dim, cursor:'default'}}>
-              🔄 sync: {formatTimeAgo(lastSync)} · co 10 min
-            </span>
-          )}
+          <span style={{fontSize:11, background:'#0d1e30', color:'#67d7f5', borderRadius:4, padding:'2px 8px', border:'1px solid #1a3a50'}}>
+            🔄 wyniki z API · auto co 10 min{lastSync ? ` · ostatnio: ${formatTimeAgo(lastSync)}` : ''}
+          </span>
           {(() => { const nl = getNextLock(); return nl && formatCountdown(nl.time) ? (
             <span style={{fontSize:11, background:'#1a1f10', color:'#d4a017', borderRadius:4, padding:'2px 8px', border:'1px solid #2a3a10'}}>
               ⏳ {nl.label}: {formatCountdown(nl.time)}
