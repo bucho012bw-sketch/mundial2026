@@ -2182,18 +2182,20 @@ export default function App() {
             {icon:'⚽', label:'Mecze',  ok: matchFilled > 0},
             {icon:'🏆', label:'Grupy',  ok: doneCount > 0},
             {icon:'⚔️', label:'Bonus',  ok: semifinalistsDone},
-            {icon:'🗓️', label:'KO',     ok: Object.keys(pred.koMatchScores||{}).some(k=>{const s=pred.koMatchScores[k];return s?.h!==''&&s?.a!==''})},
+            {icon:'🗓️', label:'KO', sub:'Faza pucharowa', ok: Object.keys(pred.koMatchScores||{}).some(k=>{const s=pred.koMatchScores[k];return s?.h!==''&&s?.a!==''})},
             {icon:'🥇', label:'Mistrz', ok: championDone},
             {icon:'📋', label:'Zapis',  ok: false},
-          ].map(({icon,label,ok},i) => (
+          ].map(({icon,label,sub,ok},i) => (
             <button key={i} onClick={()=>setStep(i)} style={{
-              flex:1, minWidth:0, padding:'10px 4px',
+              flex:1, minWidth:0, padding:'8px 4px',
               background: step===i?'#d4a017':ok?C.p.greenBg:C.p.card2,
               color: step===i?'#000':ok?C.p.green:C.p.muted,
               border:`1px solid ${step===i?'#d4a017':ok?C.p.border2:C.p.border}`,
-              borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:step===i?700:500,
+              borderRadius:8, cursor:'pointer', fontWeight:step===i?700:500,
+              display:'flex', flexDirection:'column', alignItems:'center', gap:1,
             }}>
-              {icon} {label}{ok&&step!==i?' ✓':''}
+              <span style={{fontSize:13}}>{icon} {label}{ok&&step!==i?' ✓':''}</span>
+              {sub && <span style={{fontSize:9, opacity:0.7, fontWeight:400}}>{sub}</span>}
             </button>
           ))}
         </div>
