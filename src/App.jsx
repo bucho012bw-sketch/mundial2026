@@ -675,8 +675,10 @@ export default function App() {
     setPred(p => ({ ...p, koMatchScores: { ...p.koMatchScores, [id]: { ...(p.koMatchScores?.[id]||{h:'',a:'',adv:''}), [field]: num } } }))
     setSaved(false)
   }
-  const setKOAdv = (id, val) =>
+  const setKOAdv = (id, val) => {
     setPred(p => ({ ...p, koMatchScores: { ...p.koMatchScores, [id]: { ...(p.koMatchScores?.[id]||{h:'',a:'',adv:''}), adv: val } } }))
+    setSaved(false)
+  }
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const matchFilled       = Object.values(pred.matchScores||{}).filter(s=>s.h!==''&&s.a!=='').length
