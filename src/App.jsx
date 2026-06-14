@@ -414,6 +414,7 @@ export default function App() {
       ])
 
       const FINISHED_STATUSES = ['FINISHED', 'AWARDED']
+      const NOT_STARTED_STATUSES = ['SCHEDULED', 'TIMED', 'CANCELLED', 'POSTPONED']
       const newScores = {}
       for (const m of matches) {
         const apiHome = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || EN_TO_PL[m.homeTeam?.tla] || ''
@@ -421,12 +422,12 @@ export default function App() {
         if (!apiHome || !apiAway) continue
         const entry = matchLookup[`${apiHome}|${apiAway}`]
         if (!entry) continue
-        if (!FINISHED_STATUSES.includes(m.status)) {
-          // Mecz niezakończony — wyczyść jeśli był błędnie zapisany
+        if (NOT_STARTED_STATUSES.includes(m.status)) {
+          // Mecz nie zaczęty — wyczyść błędnie zapisany wynik
           newScores[entry.key] = { h: '', a: '' }
           continue
         }
-        const ft = m.score?.fullTime
+        const ft = FINISHED_STATUSES.includes(m.status) ? m.score?.fullTime : m.score?.halfTime ?? m.score?.fullTime
         if (ft?.home == null || ft?.away == null) continue
         const h = entry.rev ? String(ft.away) : String(ft.home)
         const a = entry.rev ? String(ft.home) : String(ft.away)
