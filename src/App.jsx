@@ -1139,8 +1139,8 @@ export default function App() {
             </span>
           )}
           {lastSync && (
-            <span style={{fontSize:11, color:C.p.dim}}>
-              🔄 sync: {formatTimeAgo(lastSync)}
+            <span title="Wyniki aktualizują się automatycznie co 10 minut" style={{fontSize:11, color:C.p.dim, cursor:'default'}}>
+              🔄 sync: {formatTimeAgo(lastSync)} · co 10 min
             </span>
           )}
           {(() => { const nl = getNextLock(); return nl && formatCountdown(nl.time) ? (
