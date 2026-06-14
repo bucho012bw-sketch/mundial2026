@@ -413,8 +413,10 @@ export default function App() {
         ),
       ])
 
+      const FINISHED_STATUSES = ['FINISHED', 'AWARDED']
       const newScores = {}
       for (const m of matches) {
+        if (!FINISHED_STATUSES.includes(m.status)) continue
         const apiHome = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || EN_TO_PL[m.homeTeam?.tla] || ''
         const apiAway = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || EN_TO_PL[m.awayTeam?.tla] || ''
         if (!apiHome || !apiAway) continue
@@ -446,7 +448,8 @@ export default function App() {
         if (!round) continue
         const apiHome = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || EN_TO_PL[m.homeTeam?.tla] || ''
         const apiAway = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || EN_TO_PL[m.awayTeam?.tla] || ''
-        if (!apiHome || !apiAway) continue  // drużyny jeszcze nieznane
+        if (!apiHome || !apiAway) continue
+        const isFinishedKO = FINISHED_STATUSES.includes(m.status)
 
         const slots = KO_MATCH_SLOTS.filter(s => s.round === round)
         let slotId = null, rev = false
@@ -468,15 +471,15 @@ export default function App() {
 
         const home = rev ? apiAway : apiHome
         const away = rev ? apiHome : apiAway
-        // regularTime = czyste 90 min (fullTime dla KO może zawierać gole z dogrywki)
-        const ft   = m.score?.regularTime ?? m.score?.fullTime
-        const scoreH = ft?.home != null ? String(rev ? ft.away : ft.home) : undefined
-        const scoreA = ft?.away != null ? String(rev ? ft.home : ft.away) : undefined
 
-        // Awansujący z pola score.winner (API podaje po dogrywce/karnych)
-        let adv = existingKO[slotId]?.adv || ''
-        if (m.score?.winner === 'HOME_TEAM') adv = home
-        else if (m.score?.winner === 'AWAY_TEAM') adv = away
+        // Wynik tylko dla zakończonych meczów
+        let scoreH, scoreA, adv = existingKO[slotId]?.adv || ''
+        if (isFinishedKO) {
+          const ft = m.score?.regularTime ?? m.score?.fullTime
+          if (ft?.home != null) { scoreH = String(rev ? ft.away : ft.home); scoreA = String(rev ? ft.home : ft.away) }
+          if (m.score?.winner === 'HOME_TEAM') adv = home
+          else if (m.score?.winner === 'AWAY_TEAM') adv = away
+        }
 
         koUpdates[slotId] = {
           ...(existingKO[slotId] || {}),
