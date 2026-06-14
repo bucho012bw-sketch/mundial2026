@@ -416,12 +416,16 @@ export default function App() {
       const FINISHED_STATUSES = ['FINISHED', 'AWARDED']
       const newScores = {}
       for (const m of matches) {
-        if (!FINISHED_STATUSES.includes(m.status)) continue
         const apiHome = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || EN_TO_PL[m.homeTeam?.tla] || ''
         const apiAway = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || EN_TO_PL[m.awayTeam?.tla] || ''
         if (!apiHome || !apiAway) continue
         const entry = matchLookup[`${apiHome}|${apiAway}`]
         if (!entry) continue
+        if (!FINISHED_STATUSES.includes(m.status)) {
+          // Mecz niezakończony — wyczyść jeśli był błędnie zapisany
+          newScores[entry.key] = { h: '', a: '' }
+          continue
+        }
         const ft = m.score?.fullTime
         if (ft?.home == null || ft?.away == null) continue
         const h = entry.rev ? String(ft.away) : String(ft.home)
