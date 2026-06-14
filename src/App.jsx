@@ -13,11 +13,15 @@ import {
 const ADMIN_PIN    = import.meta.env.VITE_ADMIN_PIN || '1234'
 
 const USER_EMOJIS = {
-  'Magdalena': '🐱',
-  'Bartek': '🐶',
+  'magdalena': '🐱',
+  'bartek': '🐶',
   'kris312': '🚌',
 }
-const displayName = (name) => USER_EMOJIS[name] ? `${USER_EMOJIS[name]} ${name}` : name
+const getUserEmoji = (name) => USER_EMOJIS[name?.toLowerCase()] || null
+const displayName = (name) => {
+  const emoji = getUserEmoji(name)
+  return emoji ? `${emoji} ${name}` : name
+}
 
 // Mapowanie angielskich nazw API → polskich nazw w aplikacji
 const EN_TO_PL = {
@@ -977,7 +981,7 @@ export default function App() {
                 <th style={{padding:'6px 6px', textAlign:'center', color:C.p.muted, whiteSpace:'nowrap', fontSize:11}}>Wynik</th>
                 {scoredPreds.map(p => (
                   <th key={p.username} style={{padding:'6px 5px', textAlign:'center', color: p.username===username?C.p.gold:C.p.text, whiteSpace:'nowrap', maxWidth:70, overflow:'hidden', textOverflow:'ellipsis', fontSize:11}}>
-                    {p.username===username?'👤 ':''}{displayName(p.username)}
+                    {p.username===username&&!getUserEmoji(p.username)?'👤 ':''}{displayName(p.username)}
                   </th>
                 ))}
               </tr>
@@ -1098,7 +1102,7 @@ export default function App() {
               <th style={{padding:'8px 8px', textAlign:'center', color:'#4ade80', whiteSpace:'nowrap'}}>Wynik</th>
               {scoredPreds.map(p => (
                 <th key={p.username} style={{padding:'8px 6px', textAlign:'center', color: p.username===username?C.p.gold:C.p.text, whiteSpace:'nowrap'}}>
-                  {p.username===username?'👤 ':''}{displayName(p.username)}
+                  {p.username===username&&!getUserEmoji(p.username)?'👤 ':''}{displayName(p.username)}
                 </th>
               ))}
             </tr>
@@ -1222,7 +1226,7 @@ export default function App() {
                           {i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`}
                         </td>
                         <td style={{padding:'10px 12px', fontWeight:700, whiteSpace:'nowrap', color: isMe?C.p.gold:C.p.text}}>
-                          {isMe?'👤 ':''}{displayName(p.username)}
+                          {isMe&&!getUserEmoji(p.username)?'👤 ':''}{displayName(p.username)}
                           <div style={{...C.muted, fontSize:10, fontWeight:400}}>
                             {p.updated_at ? new Date(p.updated_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : ''}
                           </div>
@@ -1315,7 +1319,7 @@ export default function App() {
                       <th style={{padding:'6px 8px', textAlign:'center', color:C.p.muted, whiteSpace:'nowrap', fontSize:11}}>Wynik (90')</th>
                       {scoredPreds.map(p => (
                         <th key={p.username} style={{padding:'6px 5px', textAlign:'center', color: p.username===username?C.p.gold:C.p.text, whiteSpace:'nowrap', maxWidth:70, overflow:'hidden', textOverflow:'ellipsis', fontSize:11}}>
-                          {p.username===username?'👤 ':''}{displayName(p.username)}
+                          {p.username===username&&!getUserEmoji(p.username)?'👤 ':''}{displayName(p.username)}
                         </th>
                       ))}
                     </tr>
@@ -1424,7 +1428,7 @@ export default function App() {
                       return (
                         <tr key={p.username} style={{borderTop:`1px solid ${C.p.border}`, background: isMe?'rgba(212,160,23,0.05)':'transparent'}}>
                           <td style={{padding:'7px 10px', position:'sticky', left:0, background: isMe?'rgba(212,160,23,0.05)':C.p.card, zIndex:1, fontWeight:700, color: isMe?C.p.gold:C.p.text, whiteSpace:'nowrap'}}>
-                            {isMe?'👤 ':''}{displayName(p.username)}
+                            {isMe&&!getUserEmoji(p.username)?'👤 ':''}{displayName(p.username)}
                           </td>
                           {[0,1,2,3].map(i => {
                             if (!visible) return <td key={i} style={{padding:'6px', textAlign:'center'}}><span style={{color:C.p.border2}}>🔒</span></td>
@@ -1471,7 +1475,7 @@ export default function App() {
                       <th style={{padding:'8px 10px', textAlign:'center', color:'#4ade80'}}>Wynik</th>
                       {scoredPreds.map(p => (
                         <th key={p.username} style={{padding:'8px 8px', textAlign:'center', color: p.username===username?C.p.gold:C.p.text, whiteSpace:'nowrap'}}>
-                          {p.username===username?'👤 ':''}{displayName(p.username)}
+                          {p.username===username&&!getUserEmoji(p.username)?'👤 ':''}{displayName(p.username)}
                         </th>
                       ))}
                     </tr>
@@ -1537,7 +1541,6 @@ export default function App() {
                       <tbody>
                         {scorers.map((s, i) => {
                           const teamNameEn = s.team?.name || ''
-                          const teamNamePl = EN_TO_PL[teamNameEn] || teamNameEn
                           const isLeader = i === 0
                           return (
                             <tr key={s.player?.id || i} style={{
@@ -1552,7 +1555,7 @@ export default function App() {
                               </td>
                               <td style={{padding:'10px 6px'}}>
                                 <span style={{display:'flex', alignItems:'center', gap:6}}>
-                                  <Flag team={teamNamePl} size={16}/>
+                                  <Flag team={teamNameEn} size={16}/>
                                   <span style={{color:C.p.text2, fontSize:12}}>{teamNameEn}</span>
                                 </span>
                               </td>
@@ -2225,7 +2228,6 @@ export default function App() {
               <div style={{display:'flex', flexDirection:'column', gap:6}}>
                 {scorers.slice(0,5).map((s, i) => {
                   const tEn = s.team?.name || ''
-                  const tPl = EN_TO_PL[tEn] || tEn
                   return (
                   <div key={s.player?.id || i} style={{
                     display:'flex', alignItems:'center', gap:10,
@@ -2236,7 +2238,7 @@ export default function App() {
                     <span style={{fontSize:13, fontWeight:800, color:i===0?'#d4a017':C.p.dim, minWidth:22, textAlign:'center'}}>
                       {i===0?'🥇':i+1}
                     </span>
-                    <Flag team={tPl} size={20}/>
+                    <Flag team={tEn} size={20}/>
                     <span style={{flex:1, fontSize:14, fontWeight:i===0?700:400, color:C.p.text}}>{s.player?.name||'—'}</span>
                     <span style={{fontSize:11, color:C.p.muted}}>{tEn}</span>
                     <span style={{

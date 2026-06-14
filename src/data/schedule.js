@@ -107,6 +107,7 @@ export const FLAGS = {
 }
 
 export const FLAG_CODES = {
+  // polskie nazwy
   Meksyk: 'mx', RPA: 'za', 'Korea Płd.': 'kr', Czechy: 'cz',
   Kanada: 'ca', 'Bośnia i Herc.': 'ba', Katar: 'qa', Szwajcaria: 'ch',
   Brazylia: 'br', Maroko: 'ma', Haiti: 'ht', Szkocja: 'gb-sct',
@@ -119,6 +120,22 @@ export const FLAG_CODES = {
   Argentyna: 'ar', Algieria: 'dz', Austria: 'at', Jordania: 'jo',
   Portugalia: 'pt', Irak: 'iq', Uzbekistan: 'uz', Kolumbia: 'co',
   Anglia: 'gb-eng', Chorwacja: 'hr', Ghana: 'gh', Panama: 'pa',
+  // angielskie nazwy API (dla klasyfikacji strzelców)
+  Mexico: 'mx', 'South Africa': 'za', 'Korea Republic': 'kr', 'South Korea': 'kr',
+  Czechia: 'cz', 'Czech Republic': 'cz',
+  Canada: 'ca', 'Bosnia and Herzegovina': 'ba', 'Bosnia & Herzegovina': 'ba',
+  'Bosnia-Herzegovina': 'ba', 'Bosnia Herzegovina': 'ba',
+  Qatar: 'qa', Switzerland: 'ch',
+  Brazil: 'br', Morocco: 'ma', Scotland: 'gb-sct',
+  'United States': 'us', Paraguay: 'py', Turkey: 'tr', 'Türkiye': 'tr',
+  Germany: 'de', 'Côte d\'Ivoire': 'ci', 'Ivory Coast': 'ci', Ecuador: 'ec',
+  Netherlands: 'nl', Japan: 'jp', Sweden: 'se', Tunisia: 'tn',
+  Belgium: 'be', Egypt: 'eg', 'IR Iran': 'ir', 'New Zealand': 'nz',
+  Spain: 'es', 'Cape Verde': 'cv', 'Saudi Arabia': 'sa', Uruguay: 'uy',
+  France: 'fr', Iraq: 'iq', Norway: 'no',
+  Argentina: 'ar', Algeria: 'dz', Jordan: 'jo',
+  Portugal: 'pt', 'DR Congo': 'cd', 'Congo DR': 'cd',
+  Colombia: 'co', England: 'gb-eng', Croatia: 'hr',
 }
 
 export const SHORT_NAMES = {
