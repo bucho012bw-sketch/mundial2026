@@ -358,6 +358,7 @@ export default function App() {
   const [rankTab, setRankTab] = useState('summary')
   const [lastSync, setLastSync] = useState(null)
   const [debugInfo, setDebugInfo] = useState(null)
+  const [scorers, setScorers] = useState([])
 
   useEffect(() => {
     const id = setInterval(() => tick(n => n+1), 60_000)
@@ -507,6 +508,19 @@ export default function App() {
     const id = setInterval(fetchAndSyncResults, 10 * 60 * 1000)
     return () => clearInterval(id)
   }, [fetchAndSyncResults])
+
+  useEffect(() => {
+    const fetchScorers = async () => {
+      try {
+        const r = await fetch('/api/scorers')
+        const d = await r.json()
+        if (d.scorers) setScorers(d.scorers)
+      } catch {}
+    }
+    fetchScorers()
+    const id = setInterval(fetchScorers, 10 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => { loadAll(); loadResults() }, [loadAll, loadResults])
 
@@ -926,6 +940,7 @@ export default function App() {
       { id:'third',    label:'3. miejsce' },
       { id:'final',    label:'Finał' },
       { id:'bonus',    label:'🏆 Bonus' },
+      { id:'scorers',  label:'⚽ Strzelcy' },
     ]
     const ptsColor   = pts => pts===4?'#4ade80':pts===3?'#67d7f5':pts===2?'#f0b429':pts===0?'#f87171':'#6b7a8d'
     const ptsBg      = pts => pts===4?'rgba(74,222,128,0.15)':pts===3?'rgba(103,215,245,0.12)':pts===2?'rgba(240,180,41,0.12)':pts===0?'rgba(248,113,113,0.12)':'transparent'
@@ -1491,6 +1506,98 @@ export default function App() {
 
           {/* ── BONUS ────────────────────────────────────────── */}
           {rankTab === 'bonus' && <BonusTab/>}
+
+          {/* ── STRZELCY ─────────────────────────────────────── */}
+          {rankTab === 'scorers' && (
+            <div>
+              <div style={{...C.card({border:`1px solid ${C.p.border}`}), marginBottom:16}}>
+                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:8}}>
+                  <h3 style={{...C.gold, margin:0}}>⚽ Klasyfikacja strzelców</h3>
+                  <span style={{fontSize:11, color:C.p.dim}}>MŚ 2026 · aktualizacja co 10 min</span>
+                </div>
+                {scorers.length === 0 ? (
+                  <div style={{textAlign:'center', padding:'40px 20px', color:C.p.dim}}>
+                    <div style={{fontSize:36, marginBottom:12}}>⚽</div>
+                    <div style={{fontSize:14}}>Dane pojawią się po starcie turnieju (12 czerwca 2026)</div>
+                  </div>
+                ) : (
+                  <div style={{overflowX:'auto'}}>
+                    <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
+                      <thead>
+                        <tr style={{borderBottom:`2px solid ${C.p.border}`}}>
+                          <th style={{padding:'8px 6px', textAlign:'left', color:C.p.muted, fontWeight:600, width:36}}>#</th>
+                          <th style={{padding:'8px 6px', textAlign:'left', color:C.p.muted, fontWeight:600}}>Zawodnik</th>
+                          <th style={{padding:'8px 6px', textAlign:'left', color:C.p.muted, fontWeight:600}}>Kraj</th>
+                          <th style={{padding:'8px 6px', textAlign:'center', color:'#4ade80', fontWeight:700}}>⚽ Gole</th>
+                          <th style={{padding:'8px 6px', textAlign:'center', color:C.p.muted, fontWeight:600}}>Asysty</th>
+                          <th style={{padding:'8px 6px', textAlign:'center', color:C.p.dim, fontWeight:600}}>Karne</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scorers.map((s, i) => {
+                          const teamName = s.team?.name || ''
+                          const isLeader = i === 0
+                          return (
+                            <tr key={s.player?.id || i} style={{
+                              borderBottom:`1px solid ${C.p.border}`,
+                              background: isLeader ? 'rgba(212,160,23,0.08)' : i % 2 === 0 ? 'transparent' : `${C.p.card2}44`,
+                            }}>
+                              <td style={{padding:'10px 6px', color: isLeader ? '#d4a017' : C.p.dim, fontWeight: isLeader ? 800 : 400, textAlign:'center'}}>
+                                {isLeader ? '🥇' : i + 1}
+                              </td>
+                              <td style={{padding:'10px 6px', color:C.p.text, fontWeight: isLeader ? 700 : 400}}>
+                                {s.player?.name || '—'}
+                              </td>
+                              <td style={{padding:'10px 6px'}}>
+                                <span style={{display:'flex', alignItems:'center', gap:6}}>
+                                  <Flag team={teamName} size={16}/>
+                                  <span style={{color:C.p.text2, fontSize:12}}>{teamName}</span>
+                                </span>
+                              </td>
+                              <td style={{padding:'10px 6px', textAlign:'center'}}>
+                                <span style={{
+                                  background: isLeader ? 'rgba(74,222,128,0.2)' : 'rgba(74,222,128,0.08)',
+                                  color:'#4ade80', fontWeight:800, borderRadius:6, padding:'2px 10px', fontSize:14,
+                                }}>{s.goals ?? 0}</span>
+                              </td>
+                              <td style={{padding:'10px 6px', textAlign:'center', color:C.p.muted}}>{s.assists ?? 0}</td>
+                              <td style={{padding:'10px 6px', textAlign:'center', color:C.p.dim, fontSize:12}}>{s.penalties ?? 0}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              {scorers.length > 0 && (() => {
+                const leader = scorers[0]
+                const leaderCountry = leader?.team?.name || ''
+                const typers = allPreds.filter(p => p.data?.topScorerCountry === leaderCountry)
+                return (
+                  <div style={{...C.card({border:'1px solid rgba(74,222,128,0.3)', background:'rgba(74,222,128,0.05)'})}}>
+                    <div style={{...C.gold, fontWeight:700, marginBottom:8}}>
+                      🎯 Kto trafił kraj lidera strzelców?
+                    </div>
+                    <div style={{color:C.p.muted, fontSize:12, marginBottom:10}}>
+                      Aktualny lider: <strong style={{color:'#4ade80'}}>{leader.player?.name}</strong> ({leaderCountry}, {leader.goals} goli)
+                    </div>
+                    {typers.length === 0 ? (
+                      <div style={{color:C.p.dim, fontSize:13}}>Nikt jeszcze nie wytypował {leaderCountry} jako kraj top strzelca.</div>
+                    ) : (
+                      <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                        {typers.map(p => (
+                          <span key={p.name} style={{background:'rgba(74,222,128,0.15)', color:'#4ade80', border:'1px solid rgba(74,222,128,0.3)', borderRadius:6, padding:'4px 10px', fontSize:13, fontWeight:600}}>
+                            ✅ {p.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
 
         </>)}
 
@@ -2108,6 +2215,39 @@ export default function App() {
               </div>
             )
           })()}
+
+          {/* ── TOP 5 STRZELCÓW (w zakładce Najbliższe) ── */}
+          {schedTab === 'upcoming' && scorers.length > 0 && (
+            <div style={{marginTop:24}}>
+              <div style={{fontSize:11, fontWeight:800, color:C.p.gold, letterSpacing:1, marginBottom:10}}>⚽ TOP STRZELCY TURNIEJU</div>
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                {scorers.slice(0,5).map((s, i) => (
+                  <div key={s.player?.id || i} style={{
+                    display:'flex', alignItems:'center', gap:10,
+                    background: i===0 ? 'rgba(212,160,23,0.1)' : C.p.card,
+                    border:`1px solid ${i===0 ? 'rgba(212,160,23,0.3)' : C.p.border}`,
+                    borderRadius:10, padding:'10px 14px',
+                  }}>
+                    <span style={{fontSize:13, fontWeight:800, color:i===0?'#d4a017':C.p.dim, minWidth:22, textAlign:'center'}}>
+                      {i===0?'🥇':i+1}
+                    </span>
+                    <Flag team={s.team?.name||''} size={20}/>
+                    <span style={{flex:1, fontSize:14, fontWeight:i===0?700:400, color:C.p.text}}>{s.player?.name||'—'}</span>
+                    <span style={{fontSize:11, color:C.p.muted}}>{s.team?.name||''}</span>
+                    <span style={{
+                      fontSize:15, fontWeight:900, color:'#4ade80',
+                      background:'rgba(74,222,128,0.12)', borderRadius:6, padding:'2px 10px', minWidth:32, textAlign:'center',
+                    }}>{s.goals ?? 0} ⚽</span>
+                  </div>
+                ))}
+                <div style={{textAlign:'right', marginTop:4}}>
+                  <button onClick={()=>setView('leaderboard')} style={{fontSize:11, color:C.p.sky, background:'transparent', border:'none', cursor:'pointer', textDecoration:'underline'}}>
+                    Zobacz pełną klasyfikację →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── FAZA GRUPOWA ── */}
           {schedTab === 'group' && (
