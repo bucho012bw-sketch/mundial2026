@@ -1518,9 +1518,12 @@ export default function App() {
           {rankTab === 'scorers' && (
             <div>
               <div style={{...C.card({border:`1px solid ${C.p.border}`}), marginBottom:16}}>
-                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, flexWrap:'wrap', gap:8}}>
+                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8, flexWrap:'wrap', gap:8}}>
                   <h3 style={{...C.gold, margin:0}}>⚽ Klasyfikacja strzelców</h3>
                   <span style={{fontSize:11, color:C.p.dim}}>MŚ 2026 · aktualizacja co 10 min</span>
+                </div>
+                <div style={{fontSize:12, color:'#f0b429', background:'rgba(240,180,41,0.08)', border:'1px solid rgba(240,180,41,0.2)', borderRadius:6, padding:'7px 12px', marginBottom:14}}>
+                  ⚠️ Dane strzelców mogą być opóźnione o kilka godzin względem meczu — dostawca API (football-data.org) aktualizuje je z opóźnieniem. Wszystko uzupełni się automatycznie.
                 </div>
                 {scorers.length === 0 ? (
                   <div style={{textAlign:'center', padding:'40px 20px', color:C.p.dim}}>
