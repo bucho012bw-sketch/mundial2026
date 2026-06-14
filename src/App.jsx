@@ -397,7 +397,7 @@ export default function App() {
       const payload = await res.json()
       const matches = payload.matches || []
 
-      // mapowanie w obu kierunkach — API WC nie ma "prawdziwego" home/away w fazie grup
+      // ── Mecze grupowe ─────────────────────────────────────────────────────
       const matchLookup = Object.fromEntries([
         ...Object.entries(MATCHES).flatMap(([g, ms]) =>
           ms.map(m => [`${m.home}|${m.away}`, { key: matchKey(g, m), rev: false }])
@@ -416,19 +416,79 @@ export default function App() {
         if (!entry) continue
         const ft = m.score?.fullTime
         if (ft?.home == null || ft?.away == null) continue
-        // jeśli lookup był po odwróconej parze, zamieniamy wynik
         const h = entry.rev ? String(ft.away) : String(ft.home)
         const a = entry.rev ? String(ft.home) : String(ft.away)
         newScores[entry.key] = { h, a }
       }
-      setLastSync(new Date())
-      if (Object.keys(newScores).length === 0) return
 
-      const { data } = await supabase.from('results').select('*').eq('id', 'current').maybeSingle()
-      const current = data?.data || {}
+      // ── Mecze pucharowe (KO) — auto z API ────────────────────────────────
+      const API_STAGE_TO_ROUND = {
+        'ROUND_OF_32':    'R32',
+        'LAST_16':        'R16',
+        'QUARTER_FINALS': 'QF',
+        'SEMI_FINALS':    'SF',
+        'THIRD_PLACE':    '3RD',
+        'FINAL':          'FINAL',
+      }
+      const { data: resRow } = await supabase.from('results').select('*').eq('id', 'current').maybeSingle()
+      const current = resRow?.data || {}
+      const existingKO = { ...(current.koMatches || {}) }
+      const koUpdates  = {}
+
+      for (const m of matches) {
+        const round = API_STAGE_TO_ROUND[m.stage]
+        if (!round) continue
+        const apiHome = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || EN_TO_PL[m.homeTeam?.tla] || ''
+        const apiAway = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || EN_TO_PL[m.awayTeam?.tla] || ''
+        if (!apiHome || !apiAway) continue  // drużyny jeszcze nieznane
+
+        const slots = KO_MATCH_SLOTS.filter(s => s.round === round)
+        let slotId = null, rev = false
+
+        // Szukaj istniejącego slotu z tą parą drużyn
+        for (const slot of slots) {
+          const ex = existingKO[slot.id]
+          if (!ex?.home) continue
+          if (ex.home === apiHome && ex.away === apiAway) { slotId = slot.id; break }
+          if (ex.home === apiAway && ex.away === apiHome) { slotId = slot.id; rev = true; break }
+        }
+        // Jeśli nowy mecz — zajmij pierwszy wolny slot tej rundy
+        if (!slotId) {
+          for (const slot of slots) {
+            if (!existingKO[slot.id]?.home && !koUpdates[slot.id]?.home) { slotId = slot.id; break }
+          }
+        }
+        if (!slotId) continue
+
+        const home = rev ? apiAway : apiHome
+        const away = rev ? apiHome : apiAway
+        const ft   = m.score?.fullTime
+        const scoreH = ft?.home != null ? String(rev ? ft.away : ft.home) : undefined
+        const scoreA = ft?.away != null ? String(rev ? ft.home : ft.away) : undefined
+
+        // Awansujący z pola score.winner (API podaje po dogrywce/karnych)
+        let adv = existingKO[slotId]?.adv || ''
+        if (m.score?.winner === 'HOME_TEAM') adv = home
+        else if (m.score?.winner === 'AWAY_TEAM') adv = away
+
+        koUpdates[slotId] = {
+          ...(existingKO[slotId] || {}),
+          home, away,
+          kickoff: m.utcDate || existingKO[slotId]?.kickoff || null,
+          ...(scoreH !== undefined ? { scoreH, scoreA } : {}),
+          ...(adv ? { adv } : {}),
+        }
+      }
+
+      setLastSync(new Date())
+      const hasGroupChanges = Object.keys(newScores).length > 0
+      const hasKOChanges    = Object.keys(koUpdates).length > 0
+      if (!hasGroupChanges && !hasKOChanges) return
+
       const merged = {
         ...EMPTY_RESULTS, ...current,
         matchScores: { ...EMPTY_RESULTS.matchScores, ...(current.matchScores || {}), ...newScores },
+        koMatches:   { ...(current.koMatches || {}), ...koUpdates },
       }
       const { error } = await supabase.from('results').upsert(
         { id: 'current', data: merged, updated_at: new Date().toISOString() },
@@ -808,19 +868,41 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{...C.card({border:'1px solid #3a5020', background:'#111c0f'}), textAlign:'center'}}>
-          <div style={{...C.muted, fontSize:13}}>Maksimum łącznie</div>
-          <div style={{...C.gold, fontSize:32, fontWeight:900, marginTop:4}}>361 pkt</div>
+        <div style={C.card({marginBottom:16, border:`1px solid ${C.p.border2}`})}>
+          <h4 style={{margin:'0 0 12px', color:'#f0b429'}}>🗓️ Mecze fazy pucharowej (KO)</h4>
+          {SCORING_KO.map(({label,pts},i) => (
+            <div key={label} style={{display:'flex', justifyContent:'space-between', alignItems:'center',
+                                     padding:'10px 0', borderBottom:`1px solid ${C.p.border}`}}>
+              <span style={{fontSize:13, color:C.p.text2}}>{label}</span>
+              <span style={{fontWeight:800, fontSize:17,
+                color: i===0?C.p.green : i===1?C.p.sky : i===2?C.p.gold : C.p.dim}}>
+                {pts > 0 ? `+${pts} pkt` : '0 pkt'}
+              </span>
+            </div>
+          ))}
+          <div style={{...C.muted, fontSize:12, marginTop:10, lineHeight:1.6}}>
+            Maks. za KO: 32 mecze × 5 = <strong style={{color:'#f0b429'}}>160 pkt</strong><br/>
+            <span style={{fontSize:11}}>
+              Wynik po czasie regulaminowym (90 min + czas doliczony). Dogrywka / karne → tylko pole <em>"kto awansuje"</em>.
+            </span>
+          </div>
         </div>
 
-        <div style={{...C.card({marginTop:16, border:'1px solid #1e3a1e'})}}>
+        <div style={{...C.card({marginBottom:16, border:'1px solid #3a5020', background: C.p._light ? C.p.card : '#111c0f'}), textAlign:'center'}}>
+          <div style={{...C.muted, fontSize:13}}>Maksimum łącznie</div>
+          <div style={{...C.gold, fontSize:32, fontWeight:900, marginTop:4}}>521 pkt</div>
+          <div style={{...C.muted, fontSize:11, marginTop:6}}>288 (mecze gr.) + 73 (bonusy) + 160 (KO mecze)</div>
+        </div>
+
+        <div style={{...C.card({marginTop:16, border:`1px solid ${C.p.border2}`})}}>
           <h4 style={{...C.green, margin:'0 0 10px'}}>🔒 Blokady typowania</h4>
           <ul style={{...C.muted, fontSize:13, lineHeight:1.9, margin:0, paddingLeft:18}}>
             <li><strong style={{color:C.p.text}}>Mecze kolejka 1</strong> → z kickoffem 1. meczu grupy</li>
             <li><strong style={{color:C.p.text}}>Mecze kolejka 2</strong> → ~5 dni po starcie grupy</li>
             <li><strong style={{color:C.p.text}}>Mecze kolejka 3</strong> → ~10 dni po starcie grupy</li>
             <li><strong style={{color:C.p.text}}>Zwycięzca grupy</strong> → z kickoffem 1. meczu grupy</li>
-            <li><strong style={{color:C.p.text}}>Faza pucharowa / Mistrz</strong> → 28 czerwca (Runda 32)</li>
+            <li><strong style={{color:C.p.text}}>Bonus pucharowy / Mistrz</strong> → 12 czerwca 20:00 CET</li>
+            <li><strong style={{color:C.p.text}}>Mecze KO (wyniki)</strong> → każdy mecz blokuje się indywidualnie z kickoffem</li>
           </ul>
         </div>
       </div>
