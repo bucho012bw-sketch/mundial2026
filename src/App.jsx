@@ -14,6 +14,7 @@ const ADMIN_PIN    = import.meta.env.VITE_ADMIN_PIN || '1234'
 
 const USER_EMOJIS = {
   'Magdalena': '🐱',
+  'Bartek': '🐶',
   'kris312': '🚌',
 }
 const displayName = (name) => USER_EMOJIS[name] ? `${USER_EMOJIS[name]} ${name}` : name
@@ -1535,7 +1536,8 @@ export default function App() {
                       </thead>
                       <tbody>
                         {scorers.map((s, i) => {
-                          const teamName = s.team?.name || ''
+                          const teamNameEn = s.team?.name || ''
+                          const teamNamePl = EN_TO_PL[teamNameEn] || teamNameEn
                           const isLeader = i === 0
                           return (
                             <tr key={s.player?.id || i} style={{
@@ -1550,8 +1552,8 @@ export default function App() {
                               </td>
                               <td style={{padding:'10px 6px'}}>
                                 <span style={{display:'flex', alignItems:'center', gap:6}}>
-                                  <Flag team={teamName} size={16}/>
-                                  <span style={{color:C.p.text2, fontSize:12}}>{teamName}</span>
+                                  <Flag team={teamNamePl} size={16}/>
+                                  <span style={{color:C.p.text2, fontSize:12}}>{teamNameEn}</span>
                                 </span>
                               </td>
                               <td style={{padding:'10px 6px', textAlign:'center'}}>
@@ -1572,7 +1574,7 @@ export default function App() {
               </div>
               {scorers.length > 0 && (() => {
                 const leader = scorers[0]
-                const leaderCountry = leader?.team?.name || ''
+                const leaderCountry = EN_TO_PL[leader?.team?.name] || leader?.team?.name || ''
                 const typers = allPreds.filter(p => p.data?.topScorerCountry === leaderCountry)
                 return (
                   <div style={{...C.card({border:'1px solid rgba(74,222,128,0.3)', background:'rgba(74,222,128,0.05)'})}}>
@@ -1580,7 +1582,7 @@ export default function App() {
                       🎯 Kto trafił kraj lidera strzelców?
                     </div>
                     <div style={{color:C.p.muted, fontSize:12, marginBottom:10}}>
-                      Aktualny lider: <strong style={{color:'#4ade80'}}>{leader.player?.name}</strong> ({leaderCountry}, {leader.goals} goli)
+                      Aktualny lider: <strong style={{color:'#4ade80'}}>{leader.player?.name}</strong> ({leaderCountry}, {leader.goals ?? 0} goli)
                     </div>
                     {typers.length === 0 ? (
                       <div style={{color:C.p.dim, fontSize:13}}>Nikt jeszcze nie wytypował {leaderCountry} jako kraj top strzelca.</div>
@@ -2221,7 +2223,10 @@ export default function App() {
             <div style={{marginTop:24}}>
               <div style={{fontSize:11, fontWeight:800, color:C.p.gold, letterSpacing:1, marginBottom:10}}>⚽ TOP STRZELCY TURNIEJU</div>
               <div style={{display:'flex', flexDirection:'column', gap:6}}>
-                {scorers.slice(0,5).map((s, i) => (
+                {scorers.slice(0,5).map((s, i) => {
+                  const tEn = s.team?.name || ''
+                  const tPl = EN_TO_PL[tEn] || tEn
+                  return (
                   <div key={s.player?.id || i} style={{
                     display:'flex', alignItems:'center', gap:10,
                     background: i===0 ? 'rgba(212,160,23,0.1)' : C.p.card,
@@ -2231,15 +2236,16 @@ export default function App() {
                     <span style={{fontSize:13, fontWeight:800, color:i===0?'#d4a017':C.p.dim, minWidth:22, textAlign:'center'}}>
                       {i===0?'🥇':i+1}
                     </span>
-                    <Flag team={s.team?.name||''} size={20}/>
+                    <Flag team={tPl} size={20}/>
                     <span style={{flex:1, fontSize:14, fontWeight:i===0?700:400, color:C.p.text}}>{s.player?.name||'—'}</span>
-                    <span style={{fontSize:11, color:C.p.muted}}>{s.team?.name||''}</span>
+                    <span style={{fontSize:11, color:C.p.muted}}>{tEn}</span>
                     <span style={{
                       fontSize:15, fontWeight:900, color:'#4ade80',
                       background:'rgba(74,222,128,0.12)', borderRadius:6, padding:'2px 10px', minWidth:32, textAlign:'center',
                     }}>{s.goals ?? 0} ⚽</span>
                   </div>
-                ))}
+                )})}
+
                 <div style={{textAlign:'right', marginTop:4}}>
                   <button onClick={()=>setView('leaderboard')} style={{fontSize:11, color:C.p.sky, background:'transparent', border:'none', cursor:'pointer', textDecoration:'underline'}}>
                     Zobacz pełną klasyfikację →
