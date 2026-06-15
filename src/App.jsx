@@ -427,7 +427,7 @@ export default function App() {
           newScores[entry.key] = { h: '', a: '' }
           continue
         }
-        const ft = FINISHED_STATUSES.includes(m.status) ? m.score?.fullTime : m.score?.halfTime ?? m.score?.fullTime
+        const ft = m.score?.fullTime
         if (ft?.home == null || ft?.away == null) continue
         const h = entry.rev ? String(ft.away) : String(ft.home)
         const a = entry.rev ? String(ft.home) : String(ft.away)
