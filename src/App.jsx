@@ -944,7 +944,7 @@ export default function App() {
             <li><strong style={{color:C.p.text}}>Mecze kolejka 2</strong> → ~5 dni po starcie grupy</li>
             <li><strong style={{color:C.p.text}}>Mecze kolejka 3</strong> → ~10 dni po starcie grupy</li>
             <li><strong style={{color:C.p.text}}>Zwycięzca grupy</strong> → z kickoffem 1. meczu grupy</li>
-            <li><strong style={{color:C.p.text}}>Bonus pucharowy / Mistrz</strong> → 12 czerwca 20:00 CET</li>
+            <li><strong style={{color:C.p.text}}>Bonus pucharowy / Mistrz</strong> → 12 czerwca 20:00 CEST</li>
             <li><strong style={{color:C.p.text}}>Mecze KO (wyniki)</strong> → każdy mecz blokuje się indywidualnie z kickoffem</li>
           </ul>
         </div>
@@ -2015,7 +2015,7 @@ export default function App() {
           borderRadius: 10, padding: '12px 14px', marginBottom: 8,
         }}>
           <div style={{fontSize:10, color:C.p.dim, marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-            <span>📅 {dateStr} CET</span>
+            <span>📅 {dateStr} CEST</span>
             <span style={{
               fontSize:10, fontWeight:700, borderRadius:4, padding:'1px 7px',
               background: played ? 'rgba(74,222,128,0.15)' : upcoming ? 'rgba(103,215,245,0.12)' : 'rgba(240,180,41,0.12)',
@@ -2776,7 +2776,7 @@ export default function App() {
                               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, flexWrap:'wrap', gap:6}}>
                                 <div style={{display:'flex', gap:8, alignItems:'center'}}>
                                   <span style={{fontSize:11, fontWeight:800, color:C.p.gold}}>{slot.label} #{slot.num}</span>
-                                  {dateStr && <span style={{fontSize:11, color:C.p.dim}}>📅 {dateStr} CET</span>}
+                                  {dateStr && <span style={{fontSize:11, color:C.p.dim}}>📅 {dateStr} CEST</span>}
                                 </div>
                                 {locked
                                   ? <span style={{fontSize:10, fontWeight:700, color:C.p.red, background:C.p.redBg, borderRadius:4, padding:'2px 7px'}}>🔒 Zablokowane</span>

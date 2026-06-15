@@ -6,37 +6,37 @@
 export const MATCHDAY_KICKOFFS = {
   A: {
     1: [new Date('2026-06-11T19:00:00Z'), new Date('2026-06-12T02:00:00Z')],
-    2: [new Date('2026-06-18T16:00:00Z'), new Date('2026-06-19T01:00:00Z')],
+    2: [new Date('2026-06-19T01:00:00Z'), new Date('2026-06-18T16:00:00Z')], // Meksyk-Korea 03:00, Czechy-RPA 18:00 CEST
     3: [new Date('2026-06-25T01:00:00Z'), new Date('2026-06-25T01:00:00Z')],
   },
   B: {
     1: [new Date('2026-06-12T19:00:00Z'), new Date('2026-06-13T19:00:00Z')],
-    2: [new Date('2026-06-18T19:00:00Z'), new Date('2026-06-18T22:00:00Z')],
+    2: [new Date('2026-06-18T22:00:00Z'), new Date('2026-06-18T19:00:00Z')], // Kanada-Katar 00:00, Bośnia-Szwajc 21:00 CEST
     3: [new Date('2026-06-24T19:00:00Z'), new Date('2026-06-24T19:00:00Z')],
   },
   C: {
     1: [new Date('2026-06-13T22:00:00Z'), new Date('2026-06-14T01:00:00Z')],
-    2: [new Date('2026-06-19T22:00:00Z'), new Date('2026-06-20T01:00:00Z')],
+    2: [new Date('2026-06-20T00:30:00Z'), new Date('2026-06-19T22:00:00Z')], // Brazylia-Haiti 02:30, Maroko-Szkocja 00:00 CEST
     3: [new Date('2026-06-24T22:00:00Z'), new Date('2026-06-24T22:00:00Z')],
   },
   D: {
     1: [new Date('2026-06-13T01:00:00Z'), new Date('2026-06-13T04:00:00Z')],
-    2: [new Date('2026-06-19T04:00:00Z'), new Date('2026-06-19T19:00:00Z')],
+    2: [new Date('2026-06-19T19:00:00Z'), new Date('2026-06-20T03:00:00Z')], // USA-Australia 21:00, Turcja-Paragwaj 05:00 CEST
     3: [new Date('2026-06-26T02:00:00Z'), new Date('2026-06-26T02:00:00Z')],
   },
   E: {
     1: [new Date('2026-06-14T17:00:00Z'), new Date('2026-06-14T23:00:00Z')],
-    2: [new Date('2026-06-20T22:00:00Z'), new Date('2026-06-21T00:00:00Z')],
-    3: [new Date('2026-06-25T22:00:00Z'), new Date('2026-06-25T22:00:00Z')],
+    2: [new Date('2026-06-20T20:00:00Z'), new Date('2026-06-21T00:00:00Z')], // Niemcy-WKŚ 22:00, Ekwador-Curaçao 02:00 CEST
+    3: [new Date('2026-06-25T20:00:00Z'), new Date('2026-06-25T20:00:00Z')], // 22:00 CEST
   },
   F: {
     1: [new Date('2026-06-14T22:00:00Z'), new Date('2026-06-15T02:00:00Z')],
-    2: [new Date('2026-06-20T04:00:00Z'), new Date('2026-06-20T17:00:00Z')],
+    2: [new Date('2026-06-20T17:00:00Z'), new Date('2026-06-21T04:00:00Z')], // Holandia-Szwecja 19:00, Tunezja-Japonia 06:00 CEST
     3: [new Date('2026-06-25T23:00:00Z'), new Date('2026-06-25T23:00:00Z')],
   },
   G: {
     1: [new Date('2026-06-15T19:00:00Z'), new Date('2026-06-16T01:00:00Z')],
-    2: [new Date('2026-06-21T23:00:00Z'), new Date('2026-06-22T01:00:00Z')],
+    2: [new Date('2026-06-21T19:00:00Z'), new Date('2026-06-22T01:00:00Z')], // Belgia-Iran 21:00, NZ-Egipt 03:00 CEST
     3: [new Date('2026-06-27T03:00:00Z'), new Date('2026-06-27T03:00:00Z')],
   },
   H: {
@@ -66,9 +66,9 @@ export const MATCHDAY_KICKOFFS = {
   },
 }
 
-// GROUP_LOCK_UTC = kickoff pierwszego meczu grupy (= MATCHDAY_KICKOFFS[g][1][0])
+// GROUP_LOCK_UTC = najwcześniejszy kickoff MD2 w grupie (blokada typów)
 export const GROUP_LOCK_UTC = Object.fromEntries(
-  Object.entries(MATCHDAY_KICKOFFS).map(([g, mds]) => [g, mds[1][0]])
+  Object.entries(MATCHDAY_KICKOFFS).map(([g, mds]) => [g, mds[1][0] < mds[1][1] ? mds[1][0] : mds[1][1]])
 )
 
 // Typowania fazowe (półfinały, finaliści, mistrz, top strzelec)
