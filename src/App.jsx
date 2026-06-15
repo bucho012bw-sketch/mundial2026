@@ -7,7 +7,7 @@ import {
   GROUP_LOCK_UTC, KNOCKOUT_LOCK_UTC,
   isGroupLocked, isKnockoutLocked, isMatchLocked, getMatchLock, formatLockTime,
   getMatchKickoff, isMatchKickoffPassed,
-  calcScore,
+  calcScore, teamLabel,
 } from './data/schedule'
 
 const ADMIN_PIN    = import.meta.env.VITE_ADMIN_PIN || '1234'
@@ -52,7 +52,7 @@ const EN_TO_PL = {
   'New Zealand':'Nowa Zelandia',
   // Grupa H
   'Spain':'Hiszpania',
-  'Cape Verde Islands':'Zielony Przylądek', 'Cape Verde':'Zielony Przylądek', 'Zielony Przylądek':'Zielony Przylądek',
+  'Cape Verde Islands':'Cabo Verde', 'Cape Verde':'Cabo Verde', 'Cabo Verde':'Cabo Verde',
   'Saudi Arabia':'Arabia Saud.', 'Uruguay':'Urugwaj',
   // Grupa I
   'France':'Francja', 'Senegal':'Senegal',
@@ -1286,7 +1286,7 @@ export default function App() {
                               ) : t ? (
                                 <span style={{opacity: correct?1:0.5, display:'inline-flex', flexDirection:'column', alignItems:'center', gap:1}}>
                                   <Flag team={t} size={16}/>
-                                  <span style={{fontSize:8, color: correct?'#4ade80':'#6b7a8d', maxWidth:32, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t}</span>
+                                  <span style={{fontSize:8, color: correct?'#4ade80':'#6b7a8d', maxWidth:32, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{teamLabel(t)}</span>
                                 </span>
                               ) : <span style={{color:C.p.border2}}>—</span>}
                             </td>
@@ -1298,7 +1298,7 @@ export default function App() {
                             : <span style={{color:C.p.border2}}>—</span>}
                         </td>
                         <td style={{padding:'8px 10px', textAlign:'center', fontWeight:700, color:'#f0b429', whiteSpace:'nowrap', fontSize:13}}>
-                          {p.data?.winner ? <><Flag team={p.data.winner} size={16}/>{p.data.winner}</> : <span style={{color:C.p.border2}}>—</span>}
+                          {p.data?.winner ? <><Flag team={p.data.winner} size={16}/>{teamLabel(p.data.winner)}</> : <span style={{color:C.p.border2}}>—</span>}
                         </td>
                       </tr>
                     )
@@ -1804,7 +1804,7 @@ export default function App() {
                       borderRadius:8,
                     }}>
                       <span style={{textAlign:'right', fontSize:14, color: filled?C.p.text:C.p.text2, fontWeight:filled?600:400}}>
-                        <Flag team={m.home}/>{m.home}
+                        <Flag team={m.home}/>{teamLabel(m.home)}
                       </span>
                       <div style={{display:'flex', alignItems:'center', gap:5}}>
                         <ScoreInput val={score.h} onChange={v=>setResMatchScore(adminGroup,m,'h',v)} locked={false}/>
@@ -1812,7 +1812,7 @@ export default function App() {
                         <ScoreInput val={score.a} onChange={v=>setResMatchScore(adminGroup,m,'a',v)} locked={false}/>
                       </div>
                       <span style={{textAlign:'left', fontSize:14, color: filled?C.p.text:C.p.text2, fontWeight:filled?600:400}}>
-                        <Flag team={m.away}/>{m.away}
+                        <Flag team={m.away}/>{teamLabel(m.away)}
                       </span>
                     </div>
                   )
@@ -1831,7 +1831,7 @@ export default function App() {
                   <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:13,borderRadius:6,padding:'2px 10px'}}>GR {g}</span>
                   {resultsDraft.groupWinners[g] && (
                     <span style={{...C.green, fontSize:12, fontWeight:600, marginLeft:'auto'}}>
-                      <Flag team={resultsDraft.groupWinners[g]} size={16}/>{resultsDraft.groupWinners[g]}
+                      <Flag team={resultsDraft.groupWinners[g]} size={16}/>{teamLabel(resultsDraft.groupWinners[g])}
                     </span>
                   )}
                 </div>
@@ -1844,7 +1844,7 @@ export default function App() {
                       onChange={() => setResGW(g, team)}
                       style={{accentColor:'#4ade80', width:16, height:16}}/>
                     <span style={{color: resultsDraft.groupWinners[g]===team?C.p.green:C.p.text2, fontSize:14}}>
-                      <Flag team={team}/>{team}
+                      <Flag team={team}/>{teamLabel(team)}
                     </span>
                   </label>
                 ))}
@@ -1863,7 +1863,7 @@ export default function App() {
                   <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Półfinalista #{i+1}</label>
                   <select value={resultsDraft.semifinalists[i]} onChange={e=>setResSF(i,e.target.value)} style={C.sel}>
                     <option value="">— wybierz —</option>
-                    {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{teamLabel(t)}</option>)}
                   </select>
                 </div>
               ))}
@@ -1875,7 +1875,7 @@ export default function App() {
                   <label style={{...C.muted, fontSize:11, display:'block', marginBottom:4}}>Finalista #{i+1}</label>
                   <select value={resultsDraft[k]} onChange={e=>setResKey(k,e.target.value)} style={C.sel}>
                     <option value="">— wybierz —</option>
-                    {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{teamLabel(t)}</option>)}
                   </select>
                 </div>
               ))}
@@ -1891,7 +1891,7 @@ export default function App() {
               <select value={resultsDraft.winner} onChange={e=>setResKey('winner',e.target.value)}
                 style={{...C.sel, border:'1px solid #3a5020'}}>
                 <option value="">— wybierz —</option>
-                {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{teamLabel(t)}</option>)}
               </select>
             </div>
             <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
@@ -1899,7 +1899,7 @@ export default function App() {
               <select value={resultsDraft.topScorerCountry} onChange={e=>setResKey('topScorerCountry',e.target.value)}
                 style={{...C.sel, border:'1px solid #0e3050'}}>
                 <option value="">— wybierz —</option>
-                {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{teamLabel(t)}</option>)}
               </select>
             </div>
           </div>
@@ -2026,7 +2026,7 @@ export default function App() {
           </div>
           <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:8}}>
             <div style={{textAlign:'right', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:6}}>
-              <span style={{fontSize:13, fontWeight:700, color:C.p.text}}>{m.home}</span>
+              <span style={{fontSize:13, fontWeight:700, color:C.p.text}}>{teamLabel(m.home)}</span>
               <Flag team={m.home} size={22}/>
             </div>
             <div style={{textAlign:'center', minWidth:80}}>
@@ -2037,7 +2037,7 @@ export default function App() {
             </div>
             <div style={{textAlign:'left', display:'flex', alignItems:'center', gap:6}}>
               <Flag team={m.away} size={22}/>
-              <span style={{fontSize:13, fontWeight:700, color:C.p.text}}>{m.away}</span>
+              <span style={{fontSize:13, fontWeight:700, color:C.p.text}}>{teamLabel(m.away)}</span>
             </div>
           </div>
         </div>
@@ -2204,7 +2204,7 @@ export default function App() {
                   {/* Mecz */}
                   <div style={{flex: 1, display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8}}>
                     <div style={{textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8}}>
-                      <span style={{fontSize: 15, fontWeight: 700, color: C.p.text}}>{m.home}</span>
+                      <span style={{fontSize: 15, fontWeight: 700, color: C.p.text}}>{teamLabel(m.home)}</span>
                       <Flag team={m.home} size={26}/>
                     </div>
                     <div style={{textAlign: 'center', minWidth: 80}}>
@@ -2215,7 +2215,7 @@ export default function App() {
                     </div>
                     <div style={{textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8}}>
                       <Flag team={m.away} size={26}/>
-                      <span style={{fontSize: 15, fontWeight: 700, color: C.p.text}}>{m.away}</span>
+                      <span style={{fontSize: 15, fontWeight: 700, color: C.p.text}}>{teamLabel(m.away)}</span>
                     </div>
                   </div>
                 </div>
@@ -2429,7 +2429,7 @@ export default function App() {
                     <div style={{ color: '#6b7a8d', fontSize: 11, marginBottom: 4 }}>Mistrz Świata 2026</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Flag team={results.winner} size={28}/>
-                      <span style={{ color: '#f0b429', fontWeight: 900, fontSize: 20 }}>{results.winner}</span>
+                      <span style={{ color: '#f0b429', fontWeight: 900, fontSize: 20 }}>{teamLabel(results.winner)}</span>
                     </div>
                   </div>
                 </div>
@@ -2556,7 +2556,7 @@ export default function App() {
                       borderRadius:8,
                     }}>
                       <span style={{textAlign:'right',fontSize:14,color:filled?C.p.text:matchLocked?C.p.dim:C.p.text2,fontWeight:filled?600:400}}>
-                        <Flag team={m.home}/>{m.home}
+                        <Flag team={m.home}/>{teamLabel(m.home)}
                       </span>
                       <div style={{display:'flex', alignItems:'center', gap:5, flexDirection:'column'}}>
                         <span style={{
@@ -2594,7 +2594,7 @@ export default function App() {
                         )}
                       </div>
                       <span style={{textAlign:'left',fontSize:14,color:filled?C.p.text:matchLocked?C.p.dim:C.p.text2,fontWeight:filled?600:400}}>
-                        <Flag team={m.away}/>{m.away}
+                        <Flag team={m.away}/>{teamLabel(m.away)}
                       </span>
                     </div>
                   )
@@ -2623,7 +2623,7 @@ export default function App() {
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                     <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:13,borderRadius:6,padding:'2px 10px'}}>GR {g}</span>
                     <LockBadge lockTime={GROUP_LOCK_UTC[g]}/>
-                    {pred.groupWinners[g]&&<span style={{...C.gold,fontSize:12,fontWeight:600,marginLeft:'auto'}}><Flag team={pred.groupWinners[g]} size={16}/>{pred.groupWinners[g]}</span>}
+                    {pred.groupWinners[g]&&<span style={{...C.gold,fontSize:12,fontWeight:600,marginLeft:'auto'}}><Flag team={pred.groupWinners[g]} size={16}/>{teamLabel(pred.groupWinners[g])}</span>}
                   </div>
                   {GROUPS[g].map(team => (
                     <label key={team} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:8,
@@ -2632,7 +2632,7 @@ export default function App() {
                         checked={pred.groupWinners[g]===team} onChange={()=>setGW(g,team)}
                         style={{accentColor:'#d4a017',width:16,height:16}}/>
                       <span style={{color:pred.groupWinners[g]===team?C.p.gold:locked?C.p.dim:C.p.text2,fontSize:14}}>
-                        <Flag team={team}/>{team}
+                        <Flag team={team}/>{teamLabel(team)}
                       </span>
                     </label>
                   ))}
@@ -2663,7 +2663,7 @@ export default function App() {
                   <select disabled={knockoutLocked} value={pred.semifinalists[i]} onChange={e=>setSF(i,e.target.value)}
                     style={{...C.sel,opacity:knockoutLocked?0.5:1}}>
                     <option value="">— wybierz drużynę —</option>
-                    {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{teamLabel(t)}</option>)}
                   </select>
                 </div>
               ))}
@@ -2675,7 +2675,7 @@ export default function App() {
                   <label style={{...C.muted,fontSize:11,display:'block',marginBottom:4}}>Finalista #{i+1}</label>
                   <select disabled={knockoutLocked} value={pred[k]} onChange={e=>setKey(k,e.target.value)} style={{...C.sel,opacity:knockoutLocked?0.5:1}}>
                     <option value="">— wybierz drużynę —</option>
-                    {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                    {ALL_TEAMS.map(t=><option key={t} value={t}>{teamLabel(t)}</option>)}
                   </select>
                 </div>
               ))}
@@ -2861,16 +2861,16 @@ export default function App() {
               <select disabled={knockoutLocked} value={pred.winner} onChange={e=>setKey('winner',e.target.value)}
                 style={{...C.sel,border:'1px solid #3a5020',fontSize:15,padding:'12px 14px',opacity:knockoutLocked?0.5:1}}>
                 <option value="">— wybierz zwycięzcę —</option>
-                {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{teamLabel(t)}</option>)}
               </select>
-              {pred.winner&&<div style={{marginTop:14,textAlign:'center'}}><div style={{fontSize:52}}><Flag team={pred.winner} size={48}/></div><div style={{...C.gold,fontWeight:800,fontSize:22,marginTop:6}}>{pred.winner}</div></div>}
+              {pred.winner&&<div style={{marginTop:14,textAlign:'center'}}><div style={{fontSize:52}}><Flag team={pred.winner} size={48}/></div><div style={{...C.gold,fontWeight:800,fontSize:22,marginTop:6}}>{teamLabel(pred.winner)}</div></div>}
             </div>
             <div style={C.card({border:'1px solid #0e3050', background:'#0b1520'})}>
               <h4 style={{...C.sky,margin:'0 0 12px',fontSize:16}}>⚽ Kraj najlepszego strzelca turnieju</h4>
               <select disabled={knockoutLocked} value={pred.topScorerCountry} onChange={e=>setKey('topScorerCountry',e.target.value)}
                 style={{...C.sel,border:'1px solid #0e3050',fontSize:15,padding:'12px 14px',opacity:knockoutLocked?0.5:1}}>
                 <option value="">— wybierz kraj —</option>
-                {ALL_TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                {ALL_TEAMS.map(t=><option key={t} value={t}>{teamLabel(t)}</option>)}
               </select>
             </div>
           </div>
@@ -2905,7 +2905,7 @@ export default function App() {
                   <div key={g} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',background:isGroupLocked(g)?C.p.redBg:C.p.card2,borderRadius:5}}>
                     <span style={{background:'#d4a017',color:'#000',fontWeight:800,fontSize:10,borderRadius:3,padding:'1px 5px',minWidth:16,textAlign:'center'}}>{g}</span>
                     <span style={{fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                      {pred.groupWinners[g]?<><Flag team={pred.groupWinners[g]} size={14}/>{pred.groupWinners[g]}</>:<span style={{color:isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️':'—'}</span>}
+                      {pred.groupWinners[g]?<><Flag team={pred.groupWinners[g]} size={14}/>{teamLabel(pred.groupWinners[g])}</>:<span style={{color:isGroupLocked(g)?'#f87171':'#6b7a8d'}}>{isGroupLocked(g)?'⚠️':'—'}</span>}
                     </span>
                   </div>
                 ))}
@@ -2922,7 +2922,7 @@ export default function App() {
               </div>
               <div style={C.card({border:'1px solid #3a5020',background:'#111c0f'})}>
                 <div style={{...C.muted,fontSize:11}}>🏆 MISTRZ ŚWIATA 2026</div>
-                <div style={{...C.gold,fontSize:18,fontWeight:800,marginTop:4}}>{pred.winner?<><Flag team={pred.winner} size={16}/>{pred.winner}</>:<span style={{color:C.p.border2,fontSize:13}}>Nie wybrano</span>}</div>
+                <div style={{...C.gold,fontSize:18,fontWeight:800,marginTop:4}}>{pred.winner?<><Flag team={pred.winner} size={16}/>{teamLabel(pred.winner)}</>:<span style={{color:C.p.border2,fontSize:13}}>Nie wybrano</span>}</div>
               </div>
               <div style={C.card({border:'1px solid #0e3050',background:'#0b1520'})}>
                 <div style={{...C.muted,fontSize:11}}>⚽ KRAJ TOP STRZELCA</div>

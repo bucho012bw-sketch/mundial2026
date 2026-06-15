@@ -84,7 +84,7 @@ export const GROUPS = {
   E: ['Niemcy', 'Curaçao', 'Wybrzeże K.Śł.', 'Ekwador'],
   F: ['Holandia', 'Japonia', 'Szwecja', 'Tunezja'],
   G: ['Belgia', 'Egipt', 'Iran', 'Nowa Zelandia'],
-  H: ['Hiszpania', 'Zielony Przylądek', 'Arabia Saud.', 'Urugwaj'],
+  H: ['Hiszpania', 'Cabo Verde', 'Arabia Saud.', 'Urugwaj'],
   I: ['Francja', 'Senegal', 'Irak', 'Norwegia'],
   J: ['Argentyna', 'Algieria', 'Austria', 'Jordania'],
   K: ['Portugalia', 'DR Kongo', 'Uzbekistan', 'Kolumbia'],
@@ -99,7 +99,7 @@ export const FLAGS = {
   Niemcy: '🇩🇪', Curaçao: '🇨🇼', 'Wybrzeże K.Śł.': '🇨🇮', Ekwador: '🇪🇨',
   Holandia: '🇳🇱', Japonia: '🇯🇵', Szwecja: '🇸🇪', Tunezja: '🇹🇳',
   Belgia: '🇧🇪', Egipt: '🇪🇬', Iran: '🇮🇷', 'Nowa Zelandia': '🇳🇿',
-  Hiszpania: '🇪🇸', 'Zielony Przylądek': '🇨🇻', 'Arabia Saud.': '🇸🇦', Urugwaj: '🇺🇾',
+  Hiszpania: '🇪🇸', 'Cabo Verde': '🇨🇻', 'Arabia Saud.': '🇸🇦', Urugwaj: '🇺🇾',
   Francja: '🇫🇷', Senegal: '🇸🇳', 'DR Kongo': '🇨🇩', Norwegia: '🇳🇴',
   Argentyna: '🇦🇷', Algieria: '🇩🇿', Austria: '🇦🇹', Jordania: '🇯🇴',
   Portugalia: '🇵🇹', Irak: '🇮🇶', Uzbekistan: '🇺🇿', Kolumbia: '🇨🇴',
@@ -115,7 +115,7 @@ export const FLAG_CODES = {
   Niemcy: 'de', Curaçao: 'cw', 'Wybrzeże K.Śł.': 'ci', Ekwador: 'ec',
   Holandia: 'nl', Japonia: 'jp', Szwecja: 'se', Tunezja: 'tn',
   Belgia: 'be', Egipt: 'eg', Iran: 'ir', 'Nowa Zelandia': 'nz',
-  Hiszpania: 'es', 'Zielony Przylądek': 'cv', 'Arabia Saud.': 'sa', Urugwaj: 'uy',
+  Hiszpania: 'es', 'Cabo Verde': 'cv', 'Arabia Saud.': 'sa', Urugwaj: 'uy',
   Francja: 'fr', Senegal: 'sn', 'DR Kongo': 'cd', Norwegia: 'no',
   Argentyna: 'ar', Algieria: 'dz', Austria: 'at', Jordania: 'jo',
   Portugalia: 'pt', Irak: 'iq', Uzbekistan: 'uz', Kolumbia: 'co',
@@ -146,7 +146,7 @@ export const SHORT_NAMES = {
   Niemcy:'GER', Curaçao:'CUW', 'Wybrzeże K.Śł.':'CIV', Ekwador:'ECU',
   Holandia:'NED', Japonia:'JPN', Szwecja:'SWE', Tunezja:'TUN',
   Belgia:'BEL', Egipt:'EGY', Iran:'IRN', 'Nowa Zelandia':'NZL',
-  Hiszpania:'ESP', 'Zielony Przylądek':'CPV', 'Arabia Saud.':'KSA', Urugwaj:'URU',
+  Hiszpania:'ESP', 'Cabo Verde':'CPV', 'Arabia Saud.':'KSA', Urugwaj:'URU',
   Francja:'FRA', Senegal:'SEN', Irak:'IRQ', Norwegia:'NOR',
   Argentyna:'ARG', Algieria:'ALG', Austria:'AUT', Jordania:'JOR',
   Portugalia:'POR', 'DR Kongo':'COD', Uzbekistan:'UZB', Kolumbia:'COL',
@@ -155,6 +155,9 @@ export const SHORT_NAMES = {
 
 export const GROUP_LETTERS = Object.keys(GROUPS)
 export const ALL_TEAMS = [...new Set(Object.values(GROUPS).flat())].sort()
+
+const DISPLAY_NAMES = { 'Cabo Verde': 'Zielony Przylądek' }
+export const teamLabel = (name) => DISPLAY_NAMES[name] ?? name
 
 // ─── MECZE GRUPOWE ────────────────────────────────────────────────────────────
 // Standardowy round-robin dla 4 drużyn [T0,T1,T2,T3]:
