@@ -52,7 +52,7 @@ const EN_TO_PL = {
   'New Zealand':'Nowa Zelandia',
   // Grupa H
   'Spain':'Hiszpania',
-  'Cape Verde Islands':'Cabo Verde', 'Cape Verde':'Cabo Verde', 'Cabo Verde':'Cabo Verde',
+  'Cape Verde Islands':'Zielony Przylądek', 'Cape Verde':'Zielony Przylądek', 'Zielony Przylądek':'Zielony Przylądek',
   'Saudi Arabia':'Arabia Saud.', 'Uruguay':'Urugwaj',
   // Grupa I
   'France':'Francja', 'Senegal':'Senegal',
