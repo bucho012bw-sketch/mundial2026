@@ -8,7 +8,7 @@ export default async function handler(req, res) {
       { headers: { 'X-Auth-Token': key } }
     )
     const data = await resp.json()
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate')
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=30')
     res.json(data)
   } catch (e) {
     res.status(500).json({ error: e.message })

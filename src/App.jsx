@@ -496,8 +496,21 @@ export default function App() {
       }
 
       setLastSync(new Date())
-      const hasGroupChanges = Object.keys(newScores).length > 0
-      const hasKOChanges    = Object.keys(koUpdates).length > 0
+
+      // Zapisuj do Supabase TYLKO gdy coś faktycznie się zmieniło
+      const currentScores = current.matchScores || {}
+      const hasGroupChanges = Object.entries(newScores).some(([key, val]) => {
+        const cur = currentScores[key]
+        return !cur || cur.h !== val.h || cur.a !== val.a
+      })
+      const currentKO = current.koMatches || {}
+      const hasKOChanges = Object.entries(koUpdates).some(([id, val]) => {
+        const cur = currentKO[id]
+        if (!cur) return true
+        return cur.home !== val.home || cur.away !== val.away ||
+               cur.scoreH !== val.scoreH || cur.scoreA !== val.scoreA ||
+               cur.adv !== val.adv || cur.kickoff !== val.kickoff
+      })
       if (!hasGroupChanges && !hasKOChanges) return
 
       const merged = {
