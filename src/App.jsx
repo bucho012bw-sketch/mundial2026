@@ -1137,7 +1137,7 @@ export default function App() {
                 <tr key={ri} style={{borderTop:`1px solid ${C.p.border}`}}>
                   <td style={{padding:'7px 10px', whiteSpace:'nowrap', position:'sticky', left:0, background:C.p.card, zIndex:1, color:C.p.text2}}>{row.label}</td>
                   <td style={{padding:'7px 8px', textAlign:'center', color:'#f0b429', fontWeight:700}}>{row.pts}</td>
-                  <td style={{padding:'7px 8px', textAlign:'center', color:'#4ade80', fontWeight:600}}>{actual || '—'}</td>
+                  <td style={{padding:'7px 8px', textAlign:'center', color:'#4ade80', fontWeight:600}}>{actual ? teamLabel(actual) : '—'}</td>
                   {scoredPreds.map(p => {
                     const isMe = p.username === username
                     const visible = isMe || row.isVisible()
@@ -1153,7 +1153,7 @@ export default function App() {
                           background: correct===true?'rgba(74,222,128,0.15)':correct===false?'rgba(248,113,113,0.12)':'transparent'}}>
                         {val
                           ? <span style={{color: correct===true?C.p.green:correct===false?C.p.red:C.p.text2, fontWeight:600, fontSize:11}}>
-                              {val}{correct===true?' ✓':correct===false?' ✗':''}
+                              {teamLabel(val)}{correct===true?' ✓':correct===false?' ✗':''}
                             </span>
                           : <span style={{color:C.p.border2}}>—</span>
                         }
@@ -1508,7 +1508,7 @@ export default function App() {
                       <tr key={ri} style={{borderTop:`1px solid ${C.p.border}`}}>
                         <td style={{padding:'7px 10px', position:'sticky', left:0, background:C.p.card, zIndex:1, color:C.p.text2, whiteSpace:'nowrap'}}>{row.label}</td>
                         <td style={{padding:'7px 10px', textAlign:'center', color:'#4ade80', fontWeight:700}}>
-                          {row.actual ? <><Flag team={row.actual} size={14}/> {row.actual}</> : '—'}
+                          {row.actual ? <><Flag team={row.actual} size={14}/> {teamLabel(row.actual)}</> : '—'}
                         </td>
                         {scoredPreds.map(p => {
                           const isMe = p.username === username
@@ -1519,7 +1519,7 @@ export default function App() {
                           return (
                             <td key={p.username} style={{padding:'7px 8px', textAlign:'center', background: correct===true?'rgba(74,222,128,0.12)':correct===false?'rgba(248,113,113,0.08)':'transparent'}}>
                               {val ? <span style={{color: correct===true?C.p.green:correct===false?C.p.red:C.p.text2, fontWeight:600}}>
-                                <Flag team={val} size={14}/> {val}{correct===true?' ✓':correct===false?' ✗':''}
+                                <Flag team={val} size={14}/> {teamLabel(val)}{correct===true?' ✓':correct===false?' ✗':''}
                               </span> : <span style={{color:C.p.border2}}>—</span>}
                             </td>
                           )
@@ -1582,7 +1582,7 @@ export default function App() {
                               <td style={{padding:'10px 6px'}}>
                                 <span style={{display:'flex', alignItems:'center', gap:6}}>
                                   <Flag team={teamNameEn} size={16}/>
-                                  <span style={{color:C.p.text2, fontSize:12}}>{teamNameEn}</span>
+                                  <span style={{color:C.p.text2, fontSize:12}}>{teamLabel(EN_TO_PL[teamNameEn] || teamNameEn)}</span>
                                 </span>
                               </td>
                               <td style={{padding:'10px 6px', textAlign:'center'}}>
@@ -1611,10 +1611,10 @@ export default function App() {
                       🎯 Kto trafił kraj lidera strzelców?
                     </div>
                     <div style={{color:C.p.muted, fontSize:12, marginBottom:10}}>
-                      Aktualny lider: <strong style={{color:'#4ade80'}}>{leader.player?.name}</strong> ({leaderCountry}, {leader.goals ?? 0} goli)
+                      Aktualny lider: <strong style={{color:'#4ade80'}}>{leader.player?.name}</strong> ({teamLabel(leaderCountry)}, {leader.goals ?? 0} goli)
                     </div>
                     {typers.length === 0 ? (
-                      <div style={{color:C.p.dim, fontSize:13}}>Nikt jeszcze nie wytypował {leaderCountry} jako kraj top strzelca.</div>
+                      <div style={{color:C.p.dim, fontSize:13}}>Nikt jeszcze nie wytypował {teamLabel(leaderCountry)} jako kraj top strzelca.</div>
                     ) : (
                       <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
                         {typers.map(p => (
@@ -1958,13 +1958,13 @@ export default function App() {
                                   <select value={km.adv||''} onChange={e=>setResKO(slot.id,'adv',e.target.value)}
                                     style={{...C.sel, fontSize:12, padding:'4px 8px'}}>
                                     <option value="">— wybierz —</option>
-                                    <option value={km.home}>{km.home}</option>
-                                    <option value={km.away}>{km.away}</option>
+                                    <option value={km.home}>{teamLabel(km.home)}</option>
+                                    <option value={km.away}>{teamLabel(km.away)}</option>
                                   </select>
                                 </>}
                                 {hasResult && !isDrawResult && (
                                   <span style={{fontSize:11, color:C.p.green}}>
-                                    ✓ Awansuje: {parseInt(km.scoreH) > parseInt(km.scoreA) ? km.home : km.away}
+                                    ✓ Awansuje: {teamLabel(parseInt(km.scoreH) > parseInt(km.scoreA) ? km.home : km.away)}
                                   </span>
                                 )}
                               </div>
@@ -2785,7 +2785,7 @@ export default function App() {
                               </div>
                               <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:8}}>
                                 <div style={{textAlign:'right', display:'flex', alignItems:'center', justifyContent:'flex-end', gap:6}}>
-                                  <span style={{fontSize:14, fontWeight:700, color:C.p.text}}>{km.home}</span>
+                                  <span style={{fontSize:14, fontWeight:700, color:C.p.text}}>{teamLabel(km.home)}</span>
                                   <Flag team={km.home} size={22}/>
                                 </div>
                                 <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:4}}>
@@ -2798,17 +2798,17 @@ export default function App() {
                                     <select value={predKO.adv||''} onChange={e=>{setKOAdv(slot.id,e.target.value);setSaved(false)}}
                                       style={{...C.sel, fontSize:11, padding:'3px 6px', marginTop:2}}>
                                       <option value="">kto awansuje?</option>
-                                      <option value={km.home}>{km.home}</option>
-                                      <option value={km.away}>{km.away}</option>
+                                      <option value={km.home}>{teamLabel(km.home)}</option>
+                                      <option value={km.away}>{teamLabel(km.away)}</option>
                                     </select>
                                   )}
                                   {isDraw && locked && predKO.adv && (
-                                    <span style={{fontSize:11, color:C.p.sky}}>↑ {predKO.adv}</span>
+                                    <span style={{fontSize:11, color:C.p.sky}}>↑ {teamLabel(predKO.adv)}</span>
                                   )}
                                 </div>
                                 <div style={{textAlign:'left', display:'flex', alignItems:'center', gap:6}}>
                                   <Flag team={km.away} size={22}/>
-                                  <span style={{fontSize:14, fontWeight:700, color:C.p.text}}>{km.away}</span>
+                                  <span style={{fontSize:14, fontWeight:700, color:C.p.text}}>{teamLabel(km.away)}</span>
                                 </div>
                               </div>
                               {hasResult && (
@@ -2820,7 +2820,7 @@ export default function App() {
                                     borderRadius:6, padding:'2px 10px',
                                   }}>
                                     {resKM.scoreH}:{resKM.scoreA}
-                                    {resKM.adv && parseInt(resKM.scoreH)===parseInt(resKM.scoreA) && ` (${resKM.adv})`}
+                                    {resKM.adv && parseInt(resKM.scoreH)===parseInt(resKM.scoreA) && ` (${teamLabel(resKM.adv)})`}
                                   </span>
                                   {pts !== null && filled
                                     ? <span style={{fontWeight:700, fontSize:13,
@@ -2914,11 +2914,11 @@ export default function App() {
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <div style={C.card()}>
                 <h4 style={{...C.gold,margin:'0 0 8px',fontSize:14}}>⚔️ Półfinaliści</h4>
-                {pred.semifinalists.map((t,i)=><div key={i} style={{color:C.p.text2,fontSize:13,marginBottom:3}}>#{i+1} {t?<><Flag team={t} size={14}/>{t}</>:<span style={{color:C.p.border2}}>—</span>}</div>)}
+                {pred.semifinalists.map((t,i)=><div key={i} style={{color:C.p.text2,fontSize:13,marginBottom:3}}>#{i+1} {t?<><Flag team={t} size={14}/>{teamLabel(t)}</>:<span style={{color:C.p.border2}}>—</span>}</div>)}
               </div>
               <div style={C.card()}>
                 <h4 style={{...C.gold,margin:'0 0 8px',fontSize:14}}>🎖️ Finał</h4>
-                <div style={{color:C.p.text2,fontSize:13}}>{pred.finalist1?<><Flag team={pred.finalist1} size={14}/>{pred.finalist1}</>:'—'}<span style={{color:C.p.border2}}> vs </span>{pred.finalist2?<><Flag team={pred.finalist2} size={14}/>{pred.finalist2}</>:'—'}</div>
+                <div style={{color:C.p.text2,fontSize:13}}>{pred.finalist1?<><Flag team={pred.finalist1} size={14}/>{teamLabel(pred.finalist1)}</>:'—'}<span style={{color:C.p.border2}}> vs </span>{pred.finalist2?<><Flag team={pred.finalist2} size={14}/>{teamLabel(pred.finalist2)}</>:'—'}</div>
               </div>
               <div style={C.card({border:'1px solid #3a5020',background:'#111c0f'})}>
                 <div style={{...C.muted,fontSize:11}}>🏆 MISTRZ ŚWIATA 2026</div>
@@ -2926,7 +2926,7 @@ export default function App() {
               </div>
               <div style={C.card({border:'1px solid #0e3050',background:'#0b1520'})}>
                 <div style={{...C.muted,fontSize:11}}>⚽ KRAJ TOP STRZELCA</div>
-                <div style={{...C.sky,fontSize:16,fontWeight:700,marginTop:4}}>{pred.topScorerCountry?<><Flag team={pred.topScorerCountry} size={16}/>{pred.topScorerCountry}</>:<span style={{color:C.p.border2,fontSize:13}}>Nie wybrano</span>}</div>
+                <div style={{...C.sky,fontSize:16,fontWeight:700,marginTop:4}}>{pred.topScorerCountry?<><Flag team={pred.topScorerCountry} size={16}/>{teamLabel(pred.topScorerCountry)}</>:<span style={{color:C.p.border2,fontSize:13}}>Nie wybrano</span>}</div>
               </div>
             </div>
           </div>

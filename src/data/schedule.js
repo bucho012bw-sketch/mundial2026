@@ -307,7 +307,7 @@ export const formatLockTime = (dt) => {
     day: '2-digit', month: '2-digit',
     hour: '2-digit', minute: '2-digit',
     timeZone: 'Europe/Warsaw',
-  }) + ' CET'
+  }) + ' CEST'
 }
 
 export const EMPTY_PRED = {
