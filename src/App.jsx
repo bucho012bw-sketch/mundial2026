@@ -1048,8 +1048,8 @@ export default function App() {
     ]
     const ptsColor   = pts => pts===4?'#4ade80':pts===3?'#67d7f5':pts===2?'#f0b429':pts===0?'#f87171':'#6b7a8d'
     const ptsBg      = pts => pts===4?'rgba(74,222,128,0.15)':pts===3?'rgba(103,215,245,0.12)':pts===2?'rgba(240,180,41,0.12)':pts===0?'rgba(248,113,113,0.12)':'transparent'
-    const koPtsColor = pts => pts===5?'#4ade80':pts===3?'#67d7f5':pts===2?'#f0b429':pts===0?'#f87171':'#6b7a8d'
-    const koPtsBg    = pts => pts===5?'rgba(74,222,128,0.15)':pts===3?'rgba(103,215,245,0.12)':pts===2?'rgba(240,180,41,0.12)':pts===0?'rgba(248,113,113,0.12)':'transparent'
+    const koPtsColor = pts => pts===5?'#4ade80':pts===4?'#a3e635':pts===3?'#67d7f5':pts===2?'#f0b429':pts===0?'#f87171':'#6b7a8d'
+    const koPtsBg    = pts => pts===5?'rgba(74,222,128,0.15)':pts===4?'rgba(163,230,53,0.13)':pts===3?'rgba(103,215,245,0.12)':pts===2?'rgba(240,180,41,0.12)':pts===0?'rgba(248,113,113,0.12)':'transparent'
 
     const getKOMatchPts = (predData, slotId, km) => {
       if (!km?.home || !km?.away) return null
@@ -1060,9 +1060,13 @@ export default function App() {
       const ph = parseInt(predKO.h),   pa = parseInt(predKO.a)
       const actualAdv = ah > aa ? km.home : aa > ah ? km.away : (km.adv || '')
       const predAdv   = ph > pa ? km.home : pa > ph ? km.away : (predKO.adv || '')
-      if (ph===ah && pa===aa && predAdv && predAdv===actualAdv) return 5
-      if (ph===ah && pa===aa)                                   return 3
-      if (predAdv && actualAdv && predAdv===actualAdv)         return 2
+      const exactScore = ph===ah && pa===aa
+      const sameDiff   = (ph-pa) === (ah-aa)
+      const correctAdv = !!(actualAdv && predAdv && predAdv===actualAdv)
+      if (exactScore && correctAdv)    return 5
+      if (sameDiff   && correctAdv)    return 4
+      if (exactScore)                  return 3
+      if (correctAdv || sameDiff)      return 2
       return 0
     }
 
@@ -2135,23 +2139,28 @@ export default function App() {
     const koTotalH = 16 * KO_SLOT
     const koTotalW = 5 * KO_STEP - KO_GAP
 
+    const kmCard = (slotId) => {
+      const km = results.koMatches?.[slotId]
+      if (!km?.home) return { home: null, away: null, score: null, adv: null }
+      const hasScore = km.scoreH !== '' && km.scoreH != null
+      return { home: km.home, away: km.away, adv: km.adv || null,
+        score: hasScore ? { h: km.scoreH, a: km.scoreA } : null }
+    }
     const koRoundsData = [
-      { label: '1/16 FINAŁU',   date: '28 cze – 3 lip', matches: Array(16).fill({ home: null, away: null, score: null }) },
-      { label: '1/8 FINAŁU',    date: '4 – 7 lip',      matches: Array(8).fill({ home: null, away: null, score: null }) },
-      { label: 'ĆWIERĆFINAŁY',  date: '9 – 12 lip',     matches: Array(4).fill({ home: null, away: null, score: null }) },
-      { label: 'PÓŁFINAŁY',     date: '14 – 15 lip',    matches: [
-        { home: results.semifinalists?.[0]||null, away: results.semifinalists?.[1]||null, score: null },
-        { home: results.semifinalists?.[2]||null, away: results.semifinalists?.[3]||null, score: null },
-      ]},
-      { label: 'FINAŁ',         date: '19 lip · MetLife', matches: [
-        { home: results.finalist1||null, away: results.finalist2||null, score: null },
-      ]},
+      { label: '1/16 FINAŁU',  date: '28 cze – 3 lip',  matches: Array.from({length:16}, (_,i) => kmCard(`r32_${i+1}`)) },
+      { label: '1/8 FINAŁU',   date: '4 – 7 lip',       matches: Array.from({length:8},  (_,i) => kmCard(`r16_${i+1}`)) },
+      { label: 'ĆWIERĆFINAŁY', date: '9 – 12 lip',      matches: Array.from({length:4},  (_,i) => kmCard(`qf_${i+1}`)) },
+      { label: 'PÓŁFINAŁY',    date: '14 – 15 lip',      matches: [kmCard('sf_1'), kmCard('sf_2')] },
+      { label: 'FINAŁ',        date: '19 lip · MetLife', matches: [kmCard('final')] },
     ]
 
     const BracketCard = ({ match, r, i }) => {
-      const { home, away, score } = match
+      const { home, away, score, adv } = match
       const played = score != null && score.h != null && score.a != null
       const isFinal = r === 4
+      const advTeam = played
+        ? (+score.h > +score.a ? home : +score.a > +score.h ? away : (adv || null))
+        : null
       return (
         <div style={{
           position: 'absolute', left: koX(r), top: koY(r, i),
@@ -2163,7 +2172,7 @@ export default function App() {
         }}>
           {[{ team: home, side: 'h' }, { team: away, side: 'a' }].map(({ team, side }, ti) => {
             const s = played ? score[side] : null
-            const won = played && ((side === 'h' && +score.h > +score.a) || (side === 'a' && +score.a > +score.h))
+            const won = played && advTeam === team
             return (
               <div key={ti} style={{
                 display: 'flex', alignItems: 'center', gap: 5,
@@ -2234,39 +2243,52 @@ export default function App() {
             const now = new Date()
             const window24 = new Date(now.getTime() + 24 * 60 * 60 * 1000)
             const recentCutoff = new Date(now.getTime() - 3 * 60 * 60 * 1000)
-            const upcoming = GROUP_LETTERS.flatMap(g =>
+
+            // Mecze grupowe
+            const groupItems = GROUP_LETTERS.flatMap(g =>
               MATCHES[g].map(m => {
                 const kickoff = getMatchKickoff(g, m)
-                const key = matchKey(g, m)
-                const score = results.matchScores?.[key]
-                const played = score?.h !== '' && score?.a !== ''
-                return { g, m, kickoff, key, score, played }
+                const score = results.matchScores?.[matchKey(g, m)]
+                const played = !!(score?.h !== '' && score?.a !== '')
+                return { id: matchKey(g,m), label: `GR ${g} · K${m.matchday}`, kickoff,
+                  home: m.home, away: m.away,
+                  scoreH: score?.h ?? null, scoreA: score?.a ?? null, played }
               })
-            )
-            .filter(({ kickoff, played }) =>
-              (kickoff >= recentCutoff && kickoff <= window24) || (played && kickoff >= recentCutoff)
-            )
-            .sort((a, b) => a.kickoff - b.kickoff)
+            ).filter(x => (x.kickoff >= recentCutoff && x.kickoff <= window24) || (x.played && x.kickoff >= recentCutoff))
 
+            // Mecze pucharowe
+            const koItems = Object.entries(results.koMatches || {})
+              .filter(([, km]) => km?.home && km?.away && km?.kickoff)
+              .map(([id, km]) => {
+                const kickoff = new Date(km.kickoff)
+                const played = km.scoreH !== '' && km.scoreH != null
+                const slot = KO_MATCH_SLOTS.find(s => s.id === id)
+                return { id, label: slot ? `${slot.label} #${slot.num}` : id, kickoff,
+                  home: km.home, away: km.away,
+                  scoreH: played ? km.scoreH : null, scoreA: played ? km.scoreA : null,
+                  adv: km.adv || null, played }
+              })
+              .filter(x => (x.kickoff >= recentCutoff && x.kickoff <= window24) || (x.played && x.kickoff >= recentCutoff))
+
+            const upcoming = [...groupItems, ...koItems].sort((a, b) => a.kickoff - b.kickoff)
             const finished = upcoming.filter(x => x.played)
-            const live = upcoming.filter(x => !x.played && x.kickoff <= now)
-            const coming = upcoming.filter(x => !x.played && x.kickoff > now)
+            const live     = upcoming.filter(x => !x.played && x.kickoff <= now)
+            const coming   = upcoming.filter(x => !x.played && x.kickoff > now)
 
-            const UpcomingCard = ({ g, m, kickoff, score, played }) => {
+            const UpcomingCard = ({ id, label, kickoff, home, away, scoreH, scoreA, adv, played }) => {
               const isLive = !played && kickoff <= now
               const dateStr = kickoff.toLocaleString('pl-PL', { weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', timeZone:'Europe/Warsaw' })
+              const advTeam = played && scoreH != null
+                ? (+scoreH > +scoreA ? home : +scoreA > +scoreH ? away : (adv || null))
+                : null
               return (
                 <div style={{
                   background: played ? C.p.greenBg : isLive ? 'rgba(240,180,41,0.08)' : C.p.card,
                   border: `1px solid ${played ? C.p.green+'44' : isLive ? '#f0b429aa' : C.p.border}`,
                   borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12,
-                  boxShadow: C.p._light ? '0 1px 6px rgba(0,20,60,0.1)' : 'none',
                 }}>
-                  {/* Czas + Grupa */}
                   <div style={{minWidth: 90, flexShrink: 0, textAlign: 'center'}}>
-                    <div style={{fontSize: 11, fontWeight: 800, color: C.p.gold, letterSpacing: 0.5}}>
-                      GR {g} · K{m.matchday}
-                    </div>
+                    <div style={{fontSize: 11, fontWeight: 800, color: C.p.gold, letterSpacing: 0.5}}>{label}</div>
                     <div style={{fontSize: 12, color: C.p.muted, marginTop: 2}}>{dateStr}</div>
                     <div style={{marginTop: 4}}>
                       {played
@@ -2277,21 +2299,21 @@ export default function App() {
                       }
                     </div>
                   </div>
-                  {/* Mecz */}
                   <div style={{flex: 1, display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8}}>
                     <div style={{textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8}}>
-                      <span style={{fontSize: 15, fontWeight: 700, color: C.p.text}}>{teamLabel(m.home)}</span>
-                      <Flag team={m.home} size={26}/>
+                      <span style={{fontSize: 15, fontWeight: 700, color: advTeam===home?C.p.green:C.p.text}}>{teamLabel(home)}</span>
+                      <Flag team={home} size={26}/>
                     </div>
                     <div style={{textAlign: 'center', minWidth: 80}}>
-                      {played
-                        ? <span style={{fontSize: 26, fontWeight: 900, color: C.p.green, letterSpacing: 3}}>{score.h}:{score.a}</span>
+                      {played && scoreH != null
+                        ? <><span style={{fontSize: 26, fontWeight: 900, color: C.p.green, letterSpacing: 3}}>{scoreH}:{scoreA}</span>
+                           {adv && scoreH === scoreA && <div style={{fontSize:10, color:C.p.sky, marginTop:2}}>({teamLabel(adv)})</div>}</>
                         : <span style={{fontSize: 16, color: C.p.dim, fontWeight: 700}}>vs</span>
                       }
                     </div>
                     <div style={{textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8}}>
-                      <Flag team={m.away} size={26}/>
-                      <span style={{fontSize: 15, fontWeight: 700, color: C.p.text}}>{teamLabel(m.away)}</span>
+                      <Flag team={away} size={26}/>
+                      <span style={{fontSize: 15, fontWeight: 700, color: advTeam===away?C.p.green:C.p.text}}>{teamLabel(away)}</span>
                     </div>
                   </div>
                 </div>
@@ -2309,15 +2331,15 @@ export default function App() {
               <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
                 {live.length > 0 && <>
                   <div style={{fontSize: 11, fontWeight: 800, color: '#f0b429', letterSpacing: 1, marginTop: 4, marginBottom: 2}}>🔴 TRWAJĄCE</div>
-                  {live.map(x => <UpcomingCard key={x.key} {...x}/>)}
+                  {live.map(x => <UpcomingCard key={x.id} {...x}/>)}
                 </>}
                 {coming.length > 0 && <>
                   <div style={{fontSize: 11, fontWeight: 800, color: C.p.sky, letterSpacing: 1, marginTop: live.length ? 16 : 4, marginBottom: 2}}>⏳ NADCHODZĄCE (następne 24 h)</div>
-                  {coming.map(x => <UpcomingCard key={x.key} {...x}/>)}
+                  {coming.map(x => <UpcomingCard key={x.id} {...x}/>)}
                 </>}
                 {finished.length > 0 && <>
                   <div style={{fontSize: 11, fontWeight: 800, color: C.p.green, letterSpacing: 1, marginTop: (live.length || coming.length) ? 16 : 4, marginBottom: 2}}>✅ ZAKOŃCZONE (ostatnie 3 h)</div>
-                  {finished.map(x => <UpcomingCard key={x.key} {...x}/>)}
+                  {finished.map(x => <UpcomingCard key={x.id} {...x}/>)}
                 </>}
               </div>
             )
@@ -2853,10 +2875,14 @@ export default function App() {
                             const ph = parseInt(predKO.h),     pa = parseInt(predKO.a)
                             const actualAdv = ah > aa ? km.home : aa > ah ? km.away : (resKM.adv||'')
                             const predAdv   = ph > pa ? km.home : pa > ph ? km.away : (predKO.adv||'')
-                            if (ph===ah && pa===aa && predAdv===actualAdv) pts = 5
-                            else if (ph===ah && pa===aa)                   pts = 3
-                            else if (predAdv && predAdv===actualAdv)       pts = 2
-                            else                                            pts = 0
+                            const exactScore = ph===ah && pa===aa
+                            const sameDiff   = (ph-pa) === (ah-aa)
+                            const correctAdv = !!(actualAdv && predAdv && predAdv===actualAdv)
+                            if (exactScore && correctAdv)  pts = 5
+                            else if (sameDiff && correctAdv) pts = 4
+                            else if (exactScore)            pts = 3
+                            else if (correctAdv || sameDiff) pts = 2
+                            else                            pts = 0
                           }
 
                           return (
@@ -2907,8 +2933,8 @@ export default function App() {
                                 <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginTop:10, paddingTop:10, borderTop:`1px solid ${C.p.border}`}}>
                                   <span style={{fontSize:11, color:C.p.dim}}>wynik</span>
                                   <span style={{fontSize:16, fontWeight:800,
-                                    color: pts===5?C.p.green: pts===3?C.p.sky: pts===2?C.p.gold: pts===0?C.p.red:C.p.text2,
-                                    background: pts===5?C.p.greenBg: pts===3?'rgba(103,215,245,0.12)': pts===2?'rgba(212,160,23,0.12)': pts===0?C.p.redBg:C.p.card3,
+                                    color: pts===5?C.p.green: pts===4?'#a3e635': pts===3?C.p.sky: pts===2?C.p.gold: pts===0?C.p.red:C.p.text2,
+                                    background: pts===5?C.p.greenBg: pts===4?'rgba(163,230,53,0.13)': pts===3?'rgba(103,215,245,0.12)': pts===2?'rgba(212,160,23,0.12)': pts===0?C.p.redBg:C.p.card3,
                                     borderRadius:6, padding:'2px 10px',
                                   }}>
                                     {resKM.scoreH}:{resKM.scoreA}
@@ -2916,7 +2942,7 @@ export default function App() {
                                   </span>
                                   {pts !== null && filled
                                     ? <span style={{fontWeight:700, fontSize:13,
-                                        color: pts>=3?C.p.green: pts===2?C.p.gold:C.p.red}}>
+                                        color: pts>=4?C.p.green: pts===3?C.p.sky: pts===2?C.p.gold:C.p.red}}>
                                         {pts>0?`+${pts} pkt`:'✗ 0 pkt'}
                                       </span>
                                     : !filled && <span style={{fontSize:11, color:C.p.dim}}>(brak typowania)</span>

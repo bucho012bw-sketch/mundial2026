@@ -190,10 +190,11 @@ export const SCORING_BONUS = [
 ]
 
 export const SCORING_KO = [
-  { label: 'Dokładny wynik (90 min + czas dolicz.) + poprawny awansujący', pts: 5 },
-  { label: 'Dokładny wynik (90 min + czas dolicz.), błędny awansujący',   pts: 3 },
-  { label: 'Błędny wynik, poprawny awansujący',                            pts: 2 },
-  { label: 'Oba błędne',                                                   pts: 0 },
+  { label: 'Dokładny wynik (90 min + czas dolicz.) + poprawny awansujący',         pts: 5 },
+  { label: 'Ta sama różnica bramek + poprawny awansujący',                          pts: 4 },
+  { label: 'Dokładny wynik (90 min + czas dolicz.), błędny awansujący',            pts: 3 },
+  { label: 'Ta sama różnica bramek (zły awansujący) LUB zły wynik, dobry awansujący', pts: 2 },
+  { label: 'Oba błędne',                                                             pts: 0 },
 ]
 
 export const SCORING = [...SCORING_MATCHES, ...SCORING_BONUS]
@@ -274,10 +275,12 @@ export function calcScore(pred, results) {
     const actualAdv = ah > aa ? match.home : aa > ah ? match.away : (match.adv || '')
     const predAdv   = ph > pa ? match.home : pa > ph ? match.away : (predKO.adv || '')
     const exactScore = ph === ah && pa === aa
-    const correctAdv = actualAdv && predAdv && predAdv === actualAdv
-    if (exactScore && correctAdv)      matchPts += 5
-    else if (exactScore)               matchPts += 3
-    else if (correctAdv)               matchPts += 2
+    const sameDiff   = (ph - pa) === (ah - aa)
+    const correctAdv = !!(actualAdv && predAdv && predAdv === actualAdv)
+    if (exactScore && correctAdv)        matchPts += 5
+    else if (sameDiff && correctAdv)     matchPts += 4
+    else if (exactScore)                 matchPts += 3
+    else if (correctAdv || sameDiff)     matchPts += 2
   })
 
   return { matchPts, bonusPts, total: matchPts + bonusPts }
