@@ -436,11 +436,14 @@ export default function App() {
 
       // ── Mecze pucharowe (KO) — auto z API ────────────────────────────────
       const API_STAGE_TO_ROUND = {
+        'LAST_32':        'R32',
         'ROUND_OF_32':    'R32',
         'LAST_16':        'R16',
+        'ROUND_OF_16':    'R16',
         'QUARTER_FINALS': 'QF',
         'SEMI_FINALS':    'SF',
         'THIRD_PLACE':    '3RD',
+        'THIRD_PLACE_PLAY_OFF': '3RD',
         'FINAL':          'FINAL',
       }
       const { data: resRow } = await supabase.from('results').select('*').eq('id', 'current').maybeSingle()
@@ -448,12 +451,17 @@ export default function App() {
       const existingKO = { ...(current.koMatches || {}) }
       const koUpdates  = {}
 
+      const koStagesSeen = new Set()
       for (const m of matches) {
+        if (m.stage !== 'GROUP_STAGE') koStagesSeen.add(m.stage)
         const round = API_STAGE_TO_ROUND[m.stage]
         if (!round) continue
         const apiHome = EN_TO_PL[m.homeTeam?.name] || EN_TO_PL[m.homeTeam?.shortName] || EN_TO_PL[m.homeTeam?.tla] || ''
         const apiAway = EN_TO_PL[m.awayTeam?.name] || EN_TO_PL[m.awayTeam?.shortName] || EN_TO_PL[m.awayTeam?.tla] || ''
-        if (!apiHome || !apiAway) continue
+        if (!apiHome || !apiAway) {
+          console.log('[KO sync] unmapped team:', m.homeTeam?.name, 'vs', m.awayTeam?.name, 'stage:', m.stage)
+          continue
+        }
         const isFinishedKO = FINISHED_STATUSES.includes(m.status)
 
         const slots = KO_MATCH_SLOTS.filter(s => s.round === round)
@@ -494,6 +502,9 @@ export default function App() {
           ...(adv ? { adv } : {}),
         }
       }
+
+      if (koStagesSeen.size > 0)
+        console.log('[KO sync] stages in API (non-group):', [...koStagesSeen], '| koUpdates:', Object.keys(koUpdates).length)
 
       setLastSync(new Date())
 
