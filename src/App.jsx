@@ -436,15 +436,20 @@ export default function App() {
 
       // ── Mecze pucharowe (KO) — auto z API ────────────────────────────────
       const API_STAGE_TO_ROUND = {
-        'LAST_32':        'R32',
-        'ROUND_OF_32':    'R32',
-        'LAST_16':        'R16',
-        'ROUND_OF_16':    'R16',
-        'QUARTER_FINALS': 'QF',
-        'SEMI_FINALS':    'SF',
-        'THIRD_PLACE':    '3RD',
+        'LAST_32':              'R32',
+        'ROUND_OF_32':          'R32',
+        'LAST_16':              'R16',
+        'ROUND_OF_16':          'R16',
+        'QUARTER_FINALS':       'QF',
+        'QUARTER_FINAL':        'QF',
+        'LAST_8':               'QF',
+        'SEMI_FINALS':          'SF',
+        'SEMI_FINAL':           'SF',
+        'LAST_4':               'SF',
+        'THIRD_PLACE':          '3RD',
         'THIRD_PLACE_PLAY_OFF': '3RD',
-        'FINAL':          'FINAL',
+        'PLAY_OFF_3RD_PLACE':   '3RD',
+        'FINAL':                'FINAL',
       }
       const { data: resRow } = await supabase.from('results').select('*').eq('id', 'current').maybeSingle()
       const current = resRow?.data || {}
@@ -533,6 +538,18 @@ export default function App() {
         if (winner) autoGroupWinners[g] = winner
       }
 
+      // Auto-wykrywanie półfinalistów, finalistów i mistrza z wyników KO
+      const mergedKO = { ...existingKO, ...koUpdates }
+      const autoKOBonuses = {}
+      const sfAdvs = ['qf_1','qf_2','qf_3','qf_4'].map(id => mergedKO[id]?.adv || '').filter(Boolean)
+      if (sfAdvs.length > 0) autoKOBonuses.semifinalists = sfAdvs
+      const f1 = mergedKO['sf_1']?.adv || ''
+      const f2 = mergedKO['sf_2']?.adv || ''
+      if (f1) autoKOBonuses.finalist1 = f1
+      if (f2) autoKOBonuses.finalist2 = f2
+      const winnerAdv = mergedKO['final']?.adv || ''
+      if (winnerAdv) autoKOBonuses.winner = winnerAdv
+
       setLastSync(new Date())
 
       // Zapisuj do Supabase TYLKO gdy coś faktycznie się zmieniło
@@ -551,13 +568,23 @@ export default function App() {
       })
       const currentGW = current.groupWinners || {}
       const hasGWChanges = Object.entries(autoGroupWinners).some(([g, w]) => currentGW[g] !== w)
-      if (!hasGroupChanges && !hasKOChanges && !hasGWChanges) return
+      const hasKOBonusChanges = (
+        (autoKOBonuses.semifinalists && JSON.stringify(autoKOBonuses.semifinalists) !== JSON.stringify(current.semifinalists)) ||
+        (autoKOBonuses.finalist1 && autoKOBonuses.finalist1 !== current.finalist1) ||
+        (autoKOBonuses.finalist2 && autoKOBonuses.finalist2 !== current.finalist2) ||
+        (autoKOBonuses.winner && autoKOBonuses.winner !== current.winner)
+      )
+      if (!hasGroupChanges && !hasKOChanges && !hasGWChanges && !hasKOBonusChanges) return
 
       const merged = {
         ...EMPTY_RESULTS, ...current,
         matchScores:  { ...EMPTY_RESULTS.matchScores, ...(current.matchScores || {}), ...newScores },
         koMatches:    { ...(current.koMatches || {}), ...koUpdates },
         groupWinners: { ...(current.groupWinners || {}), ...autoGroupWinners },
+        ...(autoKOBonuses.semifinalists ? { semifinalists: autoKOBonuses.semifinalists } : {}),
+        ...(autoKOBonuses.finalist1    ? { finalist1:     autoKOBonuses.finalist1    } : {}),
+        ...(autoKOBonuses.finalist2    ? { finalist2:     autoKOBonuses.finalist2    } : {}),
+        ...(autoKOBonuses.winner       ? { winner:        autoKOBonuses.winner       } : {}),
       }
       const { error } = await supabase.from('results').upsert(
         { id: 'current', data: merged, updated_at: new Date().toISOString() },
@@ -792,6 +819,14 @@ export default function App() {
     })
     if (!results.winner && pData?.winner) max += 10
     if (!results.topScorerCountry && pData?.topScorerCountry) max += 5
+    // KO mecze — każdy nierozstrzygnięty slot z typem daje maks 5 pkt
+    Object.entries(results.koMatches || {}).forEach(([id, km]) => {
+      if (!km?.home || !km?.away) return
+      const hasResult = km.scoreH !== '' && km.scoreH != null && km.scoreA !== '' && km.scoreA != null
+      if (hasResult) return
+      const predKO = pData?.koMatchScores?.[id]
+      if (predKO && predKO.h !== '' && predKO.a !== '') max += 5
+    })
     return max
   }
 
