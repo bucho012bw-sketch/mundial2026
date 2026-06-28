@@ -506,6 +506,33 @@ export default function App() {
       if (koStagesSeen.size > 0)
         console.log('[KO sync] stages in API (non-group):', [...koStagesSeen], '| koUpdates:', Object.keys(koUpdates).length)
 
+      // Auto-oblicz zwycięzców grup na podstawie zakończonych meczów
+      const combinedScores = { ...(current.matchScores || {}), ...newScores }
+      const autoGroupWinners = {}
+      for (const [g, ms] of Object.entries(MATCHES)) {
+        const pts = {}, gd = {}, gf = {}
+        let allDone = true
+        for (const m of ms) {
+          const sc = combinedScores[matchKey(g, m)]
+          if (!sc || sc.h === '' || sc.a === '') { allDone = false; break }
+          const h = parseInt(sc.h), a = parseInt(sc.a)
+          if (!pts[m.home]) { pts[m.home] = 0; gd[m.home] = 0; gf[m.home] = 0 }
+          if (!pts[m.away]) { pts[m.away] = 0; gd[m.away] = 0; gf[m.away] = 0 }
+          gf[m.home] += h; gd[m.home] += h - a
+          gf[m.away] += a; gd[m.away] += a - h
+          if (h > a) pts[m.home] += 3
+          else if (h < a) pts[m.away] += 3
+          else { pts[m.home] += 1; pts[m.away] += 1 }
+        }
+        if (!allDone) continue
+        const winner = Object.keys(pts).sort((a, b) =>
+          pts[b] !== pts[a] ? pts[b] - pts[a] :
+          gd[b] !== gd[a] ? gd[b] - gd[a] :
+          gf[b] - gf[a]
+        )[0]
+        if (winner) autoGroupWinners[g] = winner
+      }
+
       setLastSync(new Date())
 
       // Zapisuj do Supabase TYLKO gdy coś faktycznie się zmieniło
@@ -522,12 +549,15 @@ export default function App() {
                cur.scoreH !== val.scoreH || cur.scoreA !== val.scoreA ||
                cur.adv !== val.adv || cur.kickoff !== val.kickoff
       })
-      if (!hasGroupChanges && !hasKOChanges) return
+      const currentGW = current.groupWinners || {}
+      const hasGWChanges = Object.entries(autoGroupWinners).some(([g, w]) => currentGW[g] !== w)
+      if (!hasGroupChanges && !hasKOChanges && !hasGWChanges) return
 
       const merged = {
         ...EMPTY_RESULTS, ...current,
-        matchScores: { ...EMPTY_RESULTS.matchScores, ...(current.matchScores || {}), ...newScores },
-        koMatches:   { ...(current.koMatches || {}), ...koUpdates },
+        matchScores:  { ...EMPTY_RESULTS.matchScores, ...(current.matchScores || {}), ...newScores },
+        koMatches:    { ...(current.koMatches || {}), ...koUpdates },
+        groupWinners: { ...(current.groupWinners || {}), ...autoGroupWinners },
       }
       const { error } = await supabase.from('results').upsert(
         { id: 'current', data: merged, updated_at: new Date().toISOString() },
@@ -2852,8 +2882,12 @@ export default function App() {
               </div>
             )}
 
-            <div style={{display:'flex', justifyContent:'space-between', marginTop:20}}>
+            <div style={{display:'flex', justifyContent:'space-between', marginTop:20, alignItems:'center'}}>
               <button onClick={()=>setStep(2)} style={C.btn(C.p.card2,C.p.text2)}>← Bonus puchar</button>
+              <button onClick={()=>handleSave(false)} disabled={loading}
+                style={{...C.btn('#00c850','#fff'), opacity:loading?0.7:1}}>
+                {loading?'Zapisuję...':'💾 Zapisz typy KO'}
+              </button>
               <button onClick={()=>setStep(4)} style={C.btn('#d4a017','#000')}>Dalej → Mistrz świata</button>
             </div>
           </>)
