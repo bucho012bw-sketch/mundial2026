@@ -2735,6 +2735,22 @@ export default function App() {
             return km?.home && km?.away
           })
           return (<>
+            <div style={{
+              background:'rgba(220,38,38,0.15)', border:'2px solid #dc2626',
+              borderRadius:10, padding:'12px 16px', marginBottom:18,
+              display:'flex', alignItems:'center', gap:12,
+            }}>
+              <span style={{fontSize:28}}>💾</span>
+              <div>
+                <div style={{color:'#f87171', fontWeight:800, fontSize:15, marginBottom:2}}>
+                  PAMIĘTAJ — wpisz typy i kliknij „Zapisz typy KO"!
+                </div>
+                <div style={{color:C.p.text2, fontSize:13}}>
+                  Typy nie zapisują się automatycznie. Użyj przycisku na dole strony.
+                </div>
+              </div>
+            </div>
+
             <div style={{marginBottom:20}}>
               <h3 style={{margin:'0 0 6px'}}>🗓️ Mecze fazy pucharowej</h3>
               <p style={{...C.muted, margin:0, fontSize:13}}>
