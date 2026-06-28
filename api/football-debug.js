@@ -8,26 +8,41 @@ export default async function handler(req, res) {
       { headers: { 'X-Auth-Token': key } }
     )
     const data = await resp.json()
+    const matches = data.matches || []
 
-    const finished = (data.matches || []).filter(m =>
+    const KNOWN_STAGES = new Set(['GROUP_STAGE'])
+    const stagesFound = [...new Set(matches.map(m => m.stage))].sort()
+
+    const finished = matches.filter(m =>
       m.score?.fullTime?.home != null && m.score?.fullTime?.away != null
     )
+
+    const koMatches = matches.filter(m => !KNOWN_STAGES.has(m.stage))
+
+    const allTeamNames = [...new Set(matches.flatMap(m => [m.homeTeam?.name, m.awayTeam?.shortName, m.awayTeam?.tla].filter(Boolean)))]
 
     res.json({
       httpStatus: resp.status,
       apiError: data.message || data.error || null,
       competitionName: data.competition?.name || null,
-      totalMatches: data.matches?.length ?? 0,
+      totalMatches: matches.length,
       matchesWithScore: finished.length,
+      stagesFound,
+      koMatchCount: koMatches.length,
+      koSample: koMatches.slice(0, 8).map(m => ({
+        stage: m.stage,
+        status: m.status,
+        home: m.homeTeam?.name,
+        away: m.awayTeam?.name,
+        utcDate: m.utcDate,
+      })),
       sample: finished.slice(0, 5).map(m => ({
         home: m.homeTeam?.name,
         away: m.awayTeam?.name,
         score: m.score?.fullTime,
         status: m.status,
+        stage: m.stage,
       })),
-      unmappedNames: [...new Set(
-        (data.matches || []).flatMap(m => [m.homeTeam?.name, m.awayTeam?.name])
-      )].filter(Boolean).slice(0, 30),
     })
   } catch (e) {
     res.json({ error: e.message })
