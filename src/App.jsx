@@ -2146,16 +2146,35 @@ export default function App() {
       return { home: km.home, away: km.away, adv: km.adv || null,
         score: hasScore ? { h: km.scoreH, a: km.scoreA } : null }
     }
+    // Zwycięzca slotu (null jeśli mecz nierozegrany)
+    const slotAdv = (slotId) => {
+      const km = results.koMatches?.[slotId]
+      if (!km?.home || km.scoreH === '' || km.scoreH == null) return null
+      const h = parseInt(km.scoreH), a = parseInt(km.scoreA)
+      return h > a ? km.home : a > h ? km.away : (km.adv || null)
+    }
+    // Wypełnij slot N z poprzedniej rundy jeśli API jeszcze nie zaschedulowało pary
+    const inferCard = (slotId, prevA, prevB) => {
+      const actual = kmCard(slotId)
+      if (actual.home) return actual  // API już ma dane
+      const a = slotAdv(prevA), b = slotAdv(prevB)
+      if (!a && !b) return actual
+      return { home: a || null, away: b || null, score: null, adv: null, inferred: true }
+    }
+    const r16 = Array.from({length:8}, (_,i) => inferCard(`r16_${i+1}`, `r32_${2*i+1}`, `r32_${2*i+2}`))
+    const qf  = Array.from({length:4}, (_,i) => inferCard(`qf_${i+1}`,  `r16_${2*i+1}`, `r16_${2*i+2}`))
+    const sf  = [inferCard('sf_1', 'qf_1', 'qf_2'), inferCard('sf_2', 'qf_3', 'qf_4')]
+    const fin = [inferCard('final', 'sf_1', 'sf_2')]
     const koRoundsData = [
       { label: '1/16 FINAŁU',  date: '28 cze – 3 lip',  matches: Array.from({length:16}, (_,i) => kmCard(`r32_${i+1}`)) },
-      { label: '1/8 FINAŁU',   date: '4 – 7 lip',       matches: Array.from({length:8},  (_,i) => kmCard(`r16_${i+1}`)) },
-      { label: 'ĆWIERĆFINAŁY', date: '9 – 12 lip',      matches: Array.from({length:4},  (_,i) => kmCard(`qf_${i+1}`)) },
-      { label: 'PÓŁFINAŁY',    date: '14 – 15 lip',      matches: [kmCard('sf_1'), kmCard('sf_2')] },
-      { label: 'FINAŁ',        date: '19 lip · MetLife', matches: [kmCard('final')] },
+      { label: '1/8 FINAŁU',   date: '4 – 7 lip',       matches: r16 },
+      { label: 'ĆWIERĆFINAŁY', date: '9 – 12 lip',      matches: qf },
+      { label: 'PÓŁFINAŁY',    date: '14 – 15 lip',      matches: sf },
+      { label: 'FINAŁ',        date: '19 lip · MetLife', matches: fin },
     ]
 
     const BracketCard = ({ match, r, i }) => {
-      const { home, away, score, adv } = match
+      const { home, away, score, adv, inferred } = match
       const played = score != null && score.h != null && score.a != null
       const isFinal = r === 4
       const advTeam = played
@@ -2166,9 +2185,10 @@ export default function App() {
           position: 'absolute', left: koX(r), top: koY(r, i),
           width: KO_CW, height: KO_CH,
           background: played ? '#0d1a0d' : home || away ? '#161d27' : '#10161f',
-          border: `1px solid ${played ? '#2a4020' : home || away ? '#253647' : '#141c28'}`,
+          border: `1px solid ${played ? '#2a4020' : inferred ? '#1a3020' : home || away ? '#253647' : '#141c28'}`,
           borderRadius: 8, overflow: 'hidden',
           boxShadow: isFinal ? '0 0 0 1px #d4a017' : 'none',
+          opacity: inferred ? 0.75 : 1,
         }}>
           {[{ team: home, side: 'h' }, { team: away, side: 'a' }].map(({ team, side }, ti) => {
             const s = played ? score[side] : null
