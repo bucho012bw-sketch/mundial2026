@@ -2153,18 +2153,26 @@ export default function App() {
       const h = parseInt(km.scoreH), a = parseInt(km.scoreA)
       return h > a ? km.home : a > h ? km.away : (km.adv || null)
     }
-    // Wypełnij slot N z poprzedniej rundy jeśli API jeszcze nie zaschedulowało pary
-    const inferCard = (slotId, prevA, prevB) => {
-      const actual = kmCard(slotId)
-      if (actual.home) return actual  // API już ma dane
-      const a = slotAdv(prevA), b = slotAdv(prevB)
-      if (!a && !b) return actual
-      return { home: a || null, away: b || null, score: null, adv: null, inferred: true }
+    // Infer kolejna runda bez duplikatów drużyn
+    const inferRound = (slots, prevSlots) => {
+      const used = new Set()
+      return slots.map((slotId, i) => {
+        const actual = kmCard(slotId)
+        if (actual.home) { used.add(actual.home); if (actual.away) used.add(actual.away); return actual }
+        const a = slotAdv(prevSlots[2*i])
+        const b = slotAdv(prevSlots[2*i+1])
+        if ((!a && !b) || (a && used.has(a)) || (b && used.has(b))) return { home: null, away: null, score: null, adv: null }
+        if (a) used.add(a); if (b) used.add(b)
+        return { home: a||null, away: b||null, score: null, adv: null, inferred: true }
+      })
     }
-    const r16 = Array.from({length:8}, (_,i) => inferCard(`r16_${i+1}`, `r32_${2*i+1}`, `r32_${2*i+2}`))
-    const qf  = Array.from({length:4}, (_,i) => inferCard(`qf_${i+1}`,  `r16_${2*i+1}`, `r16_${2*i+2}`))
-    const sf  = [inferCard('sf_1', 'qf_1', 'qf_2'), inferCard('sf_2', 'qf_3', 'qf_4')]
-    const fin = [inferCard('final', 'sf_1', 'sf_2')]
+    const r32ids = Array.from({length:16}, (_,i) => `r32_${i+1}`)
+    const r16ids = Array.from({length:8},  (_,i) => `r16_${i+1}`)
+    const qfids  = Array.from({length:4},  (_,i) => `qf_${i+1}`)
+    const r16 = inferRound(r16ids, r32ids)
+    const qf  = inferRound(qfids, r16ids)
+    const sf  = inferRound(['sf_1','sf_2'], qfids)
+    const fin = inferRound(['final'], ['sf_1','sf_2'])
     const koRoundsData = [
       { label: '1/16 FINAŁU',  date: '28 cze – 3 lip',  matches: Array.from({length:16}, (_,i) => kmCard(`r32_${i+1}`)) },
       { label: '1/8 FINAŁU',   date: '4 – 7 lip',       matches: r16 },
