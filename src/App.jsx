@@ -2153,18 +2153,23 @@ export default function App() {
       const h = parseInt(km.scoreH), a = parseInt(km.scoreA)
       return h > a ? km.home : a > h ? km.away : (km.adv || null)
     }
-    // Infer kolejna runda bez duplikatów drużyn
+    // Infer kolejna runda — zbierz WSZYSTKICH awansujących z poprzedniej rundy, rozdziel po kolei
     const inferRound = (slots, prevSlots) => {
-      const used = new Set()
-      return slots.map((slotId, i) => {
+      // Najpierw zbierz drużyny już przypisane przez API do slotów tej rundy
+      const usedInActual = new Set()
+      slots.forEach(slotId => {
         const actual = kmCard(slotId)
-        if (actual.home) { used.add(actual.home); if (actual.away) used.add(actual.away); return actual }
-        const a = slotAdv(prevSlots[2*i])
-        const b = slotAdv(prevSlots[2*i+1])
-        const home = (a && !used.has(a)) ? a : null
-        const away = (b && !used.has(b)) ? b : null
+        if (actual.home) { usedInActual.add(actual.home); if (actual.away) usedInActual.add(actual.away) }
+      })
+      // Zbierz wszystkich awansujących z poprzedniej rundy, którzy nie są jeszcze w slotach API
+      const allAdvancers = prevSlots.map(id => slotAdv(id)).filter(t => t && !usedInActual.has(t))
+      let pendingIdx = 0
+      return slots.map(slotId => {
+        const actual = kmCard(slotId)
+        if (actual.home) return actual
+        const home = allAdvancers[pendingIdx++] || null
+        const away = allAdvancers[pendingIdx++] || null
         if (!home && !away) return { home: null, away: null, score: null, adv: null }
-        if (home) used.add(home); if (away) used.add(away)
         return { home, away, score: null, adv: null, inferred: true }
       })
     }
