@@ -2161,9 +2161,11 @@ export default function App() {
         if (actual.home) { used.add(actual.home); if (actual.away) used.add(actual.away); return actual }
         const a = slotAdv(prevSlots[2*i])
         const b = slotAdv(prevSlots[2*i+1])
-        if ((!a && !b) || (a && used.has(a)) || (b && used.has(b))) return { home: null, away: null, score: null, adv: null }
-        if (a) used.add(a); if (b) used.add(b)
-        return { home: a||null, away: b||null, score: null, adv: null, inferred: true }
+        const home = (a && !used.has(a)) ? a : null
+        const away = (b && !used.has(b)) ? b : null
+        if (!home && !away) return { home: null, away: null, score: null, adv: null }
+        if (home) used.add(home); if (away) used.add(away)
+        return { home, away, score: null, adv: null, inferred: true }
       })
     }
     const r32ids = Array.from({length:16}, (_,i) => `r32_${i+1}`)
